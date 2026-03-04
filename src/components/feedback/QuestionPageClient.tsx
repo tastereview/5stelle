@@ -8,7 +8,7 @@ import type { AnswerValue } from '@/types/forms.types'
 import { ProgressBar } from './ProgressBar'
 import { QuestionScreen } from './QuestionScreen'
 import { NavigationButtons } from './NavigationButtons'
-import { Turnstile } from '@marsidev/react-turnstile'
+import { useTurnstile } from './TurnstileProvider'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -50,8 +50,8 @@ export function QuestionPageClient({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
 
+  const { token: turnstileToken } = useTurnstile()
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
   const showTurnstile = isLast && !isPreview && !!turnstileSiteKey
 
@@ -91,46 +91,32 @@ export function QuestionPageClient({
     let submissionId: string | null = sessionStorage.getItem(SUBMISSION_KEY)
 
     if (!submissionId) {
-      const { data, error } = await supabase
+      submissionId = crypto.randomUUID()
+      const { error } = await supabase
         .from('submissions')
         .insert({
+          id: submissionId,
           form_id: formId,
           table_identifier: tableIdentifier || null,
         })
-        .select('id')
-        .single()
 
       if (error) throw error
-      submissionId = data.id as string
       sessionStorage.setItem(SUBMISSION_KEY, submissionId)
     }
 
     // Save answer to database
     if (answer !== undefined) {
-      // Check if answer already exists
-      const { data: existingAnswer } = await supabase
+      const { error } = await supabase
         .from('answers')
-        .select('id')
-        .eq('submission_id', submissionId)
-        .eq('question_id', question.id)
-        .single()
-
-      if (existingAnswer) {
-        const { error } = await supabase
-          .from('answers')
-          .update({ value: answer })
-          .eq('id', existingAnswer.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('answers')
-          .insert({
+        .upsert(
+          {
             submission_id: submissionId,
             question_id: question.id,
             value: answer,
-          })
-        if (error) throw error
-      }
+          },
+          { onConflict: 'submission_id,question_id' }
+        )
+      if (error) throw error
 
       // Track sentiment if this is a sentiment question
       if (question.type === 'sentiment') {
@@ -251,14 +237,6 @@ export function QuestionPageClient({
             </motion.div>
           </AnimatePresence>
         </div>
-
-        {showTurnstile && (
-          <Turnstile
-            siteKey={turnstileSiteKey}
-            options={{ size: 'invisible' }}
-            onSuccess={setTurnstileToken}
-          />
-        )}
 
         <NavigationButtons
           isFirst={isFirst}

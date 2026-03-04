@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 8AkAW9f00e6ankMg7audJjeDQl03gcNQA3V3hIrNKlVHzhv5BzOtdpSdgddrct0
+\restrict Sgo3sx4nqpGw5jILNdpJfXJTXKlfHJNo662emDEV3UigrjSGfri0DapOEwBhgEy
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -151,6 +151,14 @@ ALTER TABLE public.tables OWNER TO postgres;
 
 ALTER TABLE ONLY public.answers
     ADD CONSTRAINT answers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: answers answers_submission_question_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.answers
+    ADD CONSTRAINT answers_submission_question_unique UNIQUE (submission_id, question_id);
 
 
 --
@@ -333,6 +341,13 @@ CREATE POLICY "Public can insert answers" ON public.answers FOR INSERT WITH CHEC
 --
 
 CREATE POLICY "Public can insert submissions" ON public.submissions FOR INSERT WITH CHECK (true);
+
+
+--
+-- Name: answers Public can update answers; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Public can update answers" ON public.answers FOR UPDATE USING (true);
 
 
 --
@@ -690,5 +705,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8AkAW9f00e6ankMg7audJjeDQl03gcNQA3V3hIrNKlVHzhv5BzOtdpSdgddrct0
+\unrestrict Sgo3sx4nqpGw5jILNdpJfXJTXKlfHJNo662emDEV3UigrjSGfri0DapOEwBhgEy
 

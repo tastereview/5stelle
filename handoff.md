@@ -1,8 +1,21 @@
-# Session Handoff — 2026-03-04 (Session 8)
+# Session Handoff — 2026-03-04 (Session 9)
 
 ## What Was Done
 
-### Session 8 (current)
+### Session 9 (current)
+
+#### 1. Preload Turnstile from First Question
+**Files:** NEW `src/components/feedback/TurnstileProvider.tsx`, `src/app/r/[restaurantSlug]/[formId]/layout.tsx`, `src/components/feedback/QuestionPageClient.tsx`
+
+- Previously Turnstile only mounted on the last question — caused a "verifying" delay before submit
+- Created `TurnstileProvider` context that renders invisible Turnstile on mount (from question 1)
+- Wrapped feedback layout `{children}` with `<TurnstileProvider>` so token starts resolving immediately
+- `QuestionPageClient` now reads token via `useTurnstile()` hook instead of managing its own Turnstile widget
+- By the time the user reaches the last question, the token is already available — no delay
+
+---
+
+### Session 8
 
 #### 1. Table Active/Inactive Toggle (replaces delete)
 **Files:** `src/types/database.types.ts`, `src/components/dashboard/QRCodeClient.tsx`, `src/app/r/[restaurantSlug]/[formId]/[index]/page.tsx`
@@ -84,6 +97,7 @@
 
 | File | Purpose |
 |------|---------|
+| `src/components/feedback/TurnstileProvider.tsx` | Turnstile context provider — preloads invisible widget from first question |
 | `src/app/(auth)/forgot-password/page.tsx` | Forgot password email form |
 | `src/app/auth/callback/route.ts` | Supabase auth code exchange |
 | `src/app/(auth)/reset-password/page.tsx` | New password form |
@@ -94,6 +108,8 @@
 
 | File | Change |
 |------|--------|
+| `src/app/r/[restaurantSlug]/[formId]/layout.tsx` | Wrapped children with `<TurnstileProvider>` |
+| `src/components/feedback/QuestionPageClient.tsx` | Removed local Turnstile widget, now reads token from `useTurnstile()` context |
 | `src/lib/supabase/middleware.ts` | `isSubscriptionActive` helper + subscription gate for dashboard routes |
 | `src/components/dashboard/BillingClient.tsx` | Inactive subscription alerts, "Prova scaduta" status, removed bright red text, gold animated subscribe button |
 | `src/app/(auth)/login/page.tsx` | Loading state fix (spinner persists during redirect), "Password dimenticata?" link |

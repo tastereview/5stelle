@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Restaurant, Form, Question } from '@/types/database.types'
+import { TurnstileProvider } from '@/components/feedback/TurnstileProvider'
 
 interface Props {
   children: React.ReactNode
@@ -84,7 +85,9 @@ export default async function FeedbackLayout({ children, params }: Props) {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col">
-        {children}
+        <TurnstileProvider>
+          {children}
+        </TurnstileProvider>
       </main>
     </div>
   )
