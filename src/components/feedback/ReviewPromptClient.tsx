@@ -41,6 +41,12 @@ export function ReviewPromptClient({
 
   // Read sentiment after mount to avoid hydration mismatch
   useEffect(() => {
+    const submissionId = sessionStorage.getItem('feedback_submission')
+    if (!submissionId && !isPreview) {
+      router.replace(`/r/${restaurantSlug}/${formId}/1`)
+      return
+    }
+
     const stored = sessionStorage.getItem(SENTIMENT_KEY)
     setSentiment(stored)
     setMounted(true)
@@ -48,7 +54,7 @@ export function ReviewPromptClient({
     if (stored !== 'great') {
       router.replace(rewardUrl)
     }
-  }, [router, rewardUrl])
+  }, [router, rewardUrl, restaurantSlug, formId, isPreview])
 
   // Countdown timer
   useEffect(() => {

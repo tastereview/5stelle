@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import confetti from 'canvas-confetti'
 import type { Restaurant, Form } from '@/types/database.types'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,10 +11,26 @@ import { PLATFORMS } from '@/lib/constants/platforms'
 interface RewardClientProps {
   restaurant: Restaurant
   form: Form
+  restaurantSlug: string
+  formId: string
 }
 
-export function RewardClient({ restaurant, form }: RewardClientProps) {
+export function RewardClient({ restaurant, form, restaurantSlug, formId }: RewardClientProps) {
+  const router = useRouter()
+  const [authorized, setAuthorized] = useState(false)
+  const hasChecked = useRef(false)
+
   useEffect(() => {
+    if (hasChecked.current) return
+    hasChecked.current = true
+
+    const submissionId = sessionStorage.getItem('feedback_submission')
+    if (!submissionId) {
+      router.replace(`/r/${restaurantSlug}/${formId}/1`)
+      return
+    }
+
+    setAuthorized(true)
     sessionStorage.removeItem('feedback_submission')
     sessionStorage.removeItem('feedback_answers')
     sessionStorage.removeItem('feedback_sentiment')
@@ -41,7 +58,9 @@ export function RewardClient({ restaurant, form }: RewardClientProps) {
     burst(0)
     burst(300)
     burst(600)
-  }, [])
+  }, [router, restaurantSlug, formId])
+
+  if (!authorized) return null
 
   const links = (restaurant.social_links || {}) as Record<string, string>
 

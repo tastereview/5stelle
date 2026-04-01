@@ -53,6 +53,8 @@ export default async function RewardPage({ params }: Props) {
     <RewardClient
       restaurant={restaurant}
       form={form}
+      restaurantSlug={restaurantSlug}
+      formId={formId}
     />
   )
 }

@@ -1,0 +1,23 @@
+[
+    {
+      "policyname": "Public can insert submissions",
+      "cmd": "INSERT",
+      "roles": "{public}",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "policyname": "Public can update own submissions",
+      "cmd": "UPDATE",
+      "roles": "{public}",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "policyname": "Users can view own submissions",
+      "cmd": "SELECT",
+      "roles": "{public}",
+      "qual": "(EXISTS ( SELECT 1\n   FROM (forms\n     JOIN restaurants ON ((restaurants.id = forms.restaurant_id)))\n  WHERE ((forms.id = submissions.form_id) AND (restaurants.owner_id = auth.uid()))))",
+      "with_check": null
+    }
+  ]
