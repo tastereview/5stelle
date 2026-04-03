@@ -7,8 +7,16 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, Copy, Check, ExternalLink, Plus, Loader2, UtensilsCrossed, Pencil } from 'lucide-react'
+import { Download, Copy, Check, ExternalLink, Plus, Loader2, UtensilsCrossed, Pencil, Trash2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import type { Table } from '@/types/database.types'
 import { createClient } from '@/lib/supabase/client'
@@ -111,18 +119,22 @@ function TableQRCard({
   url,
   onDownloadPDF,
   onToggleActive,
+  onDelete,
   onRename,
   isGenerating,
   isToggling,
+  isDeleting,
   autoFocus,
 }: {
   table: Table
   url: string
   onDownloadPDF: () => void
   onToggleActive: () => void
+  onDelete: () => void
   onRename: (name: string) => void
   isGenerating: boolean
   isToggling: boolean
+  isDeleting: boolean
   autoFocus?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -130,6 +142,7 @@ function TableQRCard({
   const [copied, setCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(autoFocus ?? false)
   const [editName, setEditName] = useState(table.name)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -231,7 +244,7 @@ function TableQRCard({
             </a>
           </Button>
         </div>
-        {isActive && (
+        {isActive ? (
           <div className="flex gap-2 w-full max-w-xs mt-4">
             <Button
               className="flex-1"
@@ -242,8 +255,49 @@ function TableQRCard({
               {isGenerating ? 'Generazione...' : 'Scarica PDF'}
             </Button>
           </div>
+        ) : (
+          <div className="flex gap-2 w-full max-w-xs mt-4">
+            <Button
+              variant="outline"
+              className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Elimina tavolo
+            </Button>
+          </div>
         )}
       </CardContent>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Elimina tavolo</DialogTitle>
+            <DialogDescription>
+              Sei sicuro di voler eliminare &quot;{table.name}&quot;? Questa azione è irreversibile. Tutte le copie stampate di questo QR code smetteranno di funzionare.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Annulla
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onDelete()
+                setShowDeleteConfirm(false)
+              }}
+            >
+              Elimina definitivamente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -259,6 +313,7 @@ export function QRCodeClient({
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null)
 
   const generalUrl = baseUrl
@@ -345,6 +400,21 @@ export function QRCodeClient({
     } catch {
       console.error('Failed to rename table')
       toast.error('Errore nel rinominare il tavolo')
+    }
+  }
+
+  const handleDeleteTable = async (id: string) => {
+    setDeletingId(id)
+    try {
+      const { error } = await supabase.from('tables').delete().eq('id', id)
+      if (error) throw error
+      setTables((prev) => prev.filter((t) => t.id !== id))
+      toast.success('Tavolo eliminato')
+    } catch {
+      console.error('Failed to delete table')
+      toast.error("Errore nell'eliminare il tavolo")
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -544,9 +614,11 @@ export function QRCodeClient({
                           url={tableUrl}
                           onDownloadPDF={() => handleDownloadSinglePDF(tableUrl, table.name)}
                           onToggleActive={() => handleToggleTable(table.id, table.is_active)}
+                          onDelete={() => handleDeleteTable(table.id)}
                           onRename={(name) => handleRenameTable(table.id, name)}
                           isGenerating={isGenerating}
                           isToggling={togglingId === table.id}
+                          isDeleting={deletingId === table.id}
                           autoFocus={newlyAddedId === table.id}
                         />
                       </motion.div>

@@ -25,6 +25,7 @@ import {
   CircleDot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface QuestionItemProps {
   question: Question
@@ -117,9 +118,18 @@ export function QuestionItem({
             <Pencil className="h-4 w-4" />
           </Button>
           {locked ? (
-            <div className="flex items-center justify-center h-9 w-9">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center h-9 w-9">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>La domanda di valutazione generale è obbligatoria</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : (
             <Button
               variant="ghost"

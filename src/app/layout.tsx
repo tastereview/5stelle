@@ -60,7 +60,7 @@ export default function RootLayout({
       >
         <ProgressBarProvider />
         {children}
-        <Toaster position="top-center" richColors />
+        <Toaster position="bottom-right" richColors />
         <CookieBanner />
       </body>
     </html>

@@ -5,6 +5,7 @@ import type { Question } from '@/types/database.types'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -13,7 +14,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, Plus, X } from 'lucide-react'
+import {
+  Loader2,
+  Plus,
+  X,
+  Smile,
+  Star,
+  AlignLeft,
+  CheckSquare,
+  CircleDot,
+} from 'lucide-react'
+import type { QuestionType } from '@/types/database.types'
+import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { QUESTION_TYPE_META } from '@/types/forms.types'
+
+const typeIcons: Record<QuestionType, typeof Smile> = {
+  sentiment: Smile,
+  star_rating: Star,
+  open_text: AlignLeft,
+  multiple_choice: CheckSquare,
+  single_choice: CircleDot,
+}
 
 interface QuestionEditorProps {
   question: Question | null
@@ -33,7 +55,6 @@ export function QuestionEditor({ question, onSave, onClose, locked }: QuestionEd
   const [isRequired, setIsRequired] = useState(true)
   const [options, setOptions] = useState<QuestionOption[]>([])
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const hasOptions = question?.type === 'multiple_choice' || question?.type === 'single_choice'
 
@@ -45,7 +66,6 @@ export function QuestionEditor({ question, onSave, onClose, locked }: QuestionEd
       setOptions(
         (question.options as unknown as QuestionOption[]) || []
       )
-      setError(null)
     }
   }, [question])
 
@@ -53,17 +73,21 @@ export function QuestionEditor({ question, onSave, onClose, locked }: QuestionEd
     if (!question) return
 
     if (!label.trim()) {
-      setError('Inserisci il testo della domanda')
+      toast.error('Inserisci il testo della domanda')
       return
     }
 
     if (hasOptions && options.length < 2) {
-      setError('Aggiungi almeno 2 opzioni')
+      toast.error('Aggiungi almeno 2 opzioni')
+      return
+    }
+
+    if (hasOptions && options.some((opt) => !opt.label.trim())) {
+      toast.error('Compila tutte le opzioni prima di salvare')
       return
     }
 
     setIsSaving(true)
-    setError(null)
 
     await onSave({
       ...question,
@@ -97,15 +121,21 @@ export function QuestionEditor({ question, onSave, onClose, locked }: QuestionEd
     <Dialog open={!!question} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Modifica domanda</DialogTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <DialogTitle>Modifica domanda</DialogTitle>
+            {question && (() => {
+              const Icon = typeIcons[question.type]
+              return (
+                <Badge variant="secondary">
+                  <Icon className="h-3 w-3" />
+                  {QUESTION_TYPE_META[question.type]?.label || question.type}
+                </Badge>
+              )
+            })()}
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {error && (
-            <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
-              {error}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="label">Testo della domanda</Label>

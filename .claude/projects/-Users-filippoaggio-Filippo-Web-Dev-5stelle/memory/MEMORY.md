@@ -1,0 +1,4 @@
+- [First client](project_first_client.md) — First client demo successful, onboarding week of 2026-04-07, one month test period
+- [Review countdown](feedback_review_countdown.md) — 10s countdown on review prompt is intentional, don't change
+- [Price format](feedback_price_format.md) — Keep €39 without decimals
+- [Toast position](feedback_toast_position.md) — Toasts must be bottom-right

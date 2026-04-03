@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import type { Submission, Question, Answer } from '@/types/database.types'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Frown, Meh, Smile, Star } from 'lucide-react'
+import { Loader2, Frown, Meh, Smile, Star, CircleAlert } from 'lucide-react'
 
 interface FeedbackDetailDialogProps {
   submission: Submission | null
@@ -123,12 +123,14 @@ export function FeedbackDetailDialog({
   const [answers, setAnswers] = useState<AnswerWithQuestion[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (!submission || !formId) return
 
     const fetchDetails = async () => {
       setIsLoading(true)
+      setLoadError(false)
 
       // Fetch answers and questions
       const [answersResult, questionsResult] = await Promise.all([
@@ -145,6 +147,7 @@ export function FeedbackDetailDialog({
 
       if (answersResult.error || questionsResult.error) {
         console.error('Failed to load feedback details')
+        setLoadError(true)
         setIsLoading(false)
         return
       }
@@ -173,6 +176,14 @@ export function FeedbackDetailDialog({
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <CircleAlert className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm font-medium mb-1">Errore nel caricamento</p>
+            <p className="text-sm text-muted-foreground">
+              Non è stato possibile caricare i dettagli. Chiudi e riprova.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">

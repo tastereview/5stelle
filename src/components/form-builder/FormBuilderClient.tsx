@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import type { Form, Question } from '@/types/database.types'
-import { TemplateSelector } from './TemplateSelector'
 import { QuestionList } from './QuestionList'
 import { QuestionEditor } from './QuestionEditor'
 import { AddQuestionMenu } from './AddQuestionMenu'
 import { RewardTextEditor } from './RewardTextEditor'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { MAX_QUESTIONS_PER_FORM } from '@/types/forms.types'
+import { CheckCircle2, TriangleAlert } from 'lucide-react'
 
 interface FormBuilderClientProps {
   form: Form | null
@@ -203,18 +204,40 @@ export function FormBuilderClient({
 
   return (
     <div className="space-y-6">
-      {/* Template Selector */}
-      <TemplateSelector onApply={handleTemplateApply} disabled={isSaving} />
-
       {/* Questions */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Domande ({questions.length}/{MAX_QUESTIONS_PER_FORM})</CardTitle>
-          <AddQuestionMenu
-            onAdd={handleAddQuestion}
-            disabled={isSaving || questions.length >= MAX_QUESTIONS_PER_FORM}
-            formId={currentForm?.id || ''}
-          />
+        <CardHeader>
+          <div className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              Domande ({questions.length}/{MAX_QUESTIONS_PER_FORM})
+              {questions.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {questions.length <= 3 ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <TriangleAlert className="h-4 w-4 text-yellow-500" />
+                      )}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        {questions.length <= 3
+                          ? 'Quantità di domande ideale'
+                          : 'Molte domande: potrebbero ridurre il tasso di completamento'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </CardTitle>
+            <AddQuestionMenu
+              onAdd={handleAddQuestion}
+              onApplyTemplate={handleTemplateApply}
+              disabled={isSaving || questions.length >= MAX_QUESTIONS_PER_FORM}
+              formId={currentForm?.id || ''}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <QuestionList
