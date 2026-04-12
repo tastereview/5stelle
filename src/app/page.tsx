@@ -19,10 +19,6 @@ import {
   Smile,
   Meh,
   Frown,
-  Route,
-  QrCode,
-  LayoutDashboard,
-  Paintbrush,
   Lock,
   ExternalLink,
   Shield,
@@ -33,6 +29,7 @@ import {
   Coffee,
   Hotel,
 } from "lucide-react";
+import { GoogleIcon } from "@/components/icons/PlatformIcons";
 
 /* ─── Animation helpers ─── */
 
@@ -55,44 +52,16 @@ const fadeUp: Variants = {
 
 /* ─── Data ─── */
 
-const features = [
-  {
-    title: "Routing intelligente",
-    description:
-      "I clienti felici vengono guidati verso Google, TripAdvisor e altre piattaforme. I feedback negativi restano solo a te.",
-    icon: Route,
-  },
-  {
-    title: "QR code per tavolo",
-    description:
-      "Un QR code dedicato per ogni tavolo, così sai esattamente da dove arriva ogni feedback.",
-    icon: QrCode,
-  },
-  {
-    title: "Dashboard analytics",
-    description:
-      "Visualizza punteggi, trend e sentiment in un\u2019unica dashboard chiara e intuitiva.",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Personalizzazione completa",
-    description:
-      "Scegli le domande, il tipo di risposta e il flusso che meglio si adatta al tuo locale.",
-    icon: Paintbrush,
-  },
-];
-
 const pricingFeatures = [
   "Moduli di feedback illimitati",
   "QR code per ogni tavolo",
-  "Dashboard analytics completa",
+  "Monitoraggio recensioni Google",
   "Routing intelligente alle recensioni",
-  "Personalizzazione completa",
+  "Dashboard analytics completa",
   "Supporto prioritario",
 ];
 
-const reviewPlatforms = [
-  { name: "Google", stars: 5 },
+const secondaryPlatforms = [
   { name: "TripAdvisor", stars: 5 },
   { name: "TheFork", stars: 5 },
   { name: "Trustpilot", stars: 5 },
@@ -277,22 +246,49 @@ function DashboardIllustration() {
       viewport={{ once: true }}
       variants={stagger}
     >
-      {/* Header */}
+      {/* Google header */}
       <motion.div
         variants={fadeUp}
-        className="mb-6 flex items-center justify-between"
+        className="mb-5 flex items-center justify-between"
       >
-        <div className="h-4 w-20 rounded-full bg-muted" />
-        <div className="flex items-center gap-1">
-          <span className="text-xl font-bold">4.8</span>
-          <Star className="size-4 fill-amber-400 text-amber-400" />
+        <div className="flex items-center gap-2">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-white shadow-sm border">
+            <GoogleIcon className="size-4" />
+          </div>
+          <span className="text-sm font-semibold">Google Reviews</span>
+        </div>
+        <div className="flex items-center gap-1 text-green-600">
+          <TrendingUp className="size-3.5" />
+          <span className="text-xs font-semibold">+0.4</span>
+        </div>
+      </motion.div>
+
+      {/* Rating display */}
+      <motion.div variants={fadeUp} className="mb-5 flex items-center gap-4">
+        <div>
+          <div className="text-4xl font-bold">4.6</div>
+          <div className="flex gap-0.5 mt-0.5">
+            {[0, 1, 2, 3].map((i) => (
+              <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+            ))}
+            <Star className="size-3.5 fill-amber-400/40 text-amber-400/40" />
+          </div>
+        </div>
+        <div className="flex-1 rounded-lg bg-muted/50 p-2.5 text-center">
+          <div className="text-xs text-muted-foreground">Prima</div>
+          <div className="text-lg font-bold">4.2</div>
+        </div>
+        <div className="text-muted-foreground/40 text-lg">&rarr;</div>
+        <div className="flex-1 rounded-lg bg-green-50 border border-green-200 p-2.5 text-center">
+          <div className="text-xs text-green-700">Oggi</div>
+          <div className="text-lg font-bold text-green-700">4.6</div>
         </div>
       </motion.div>
 
       {/* Bar chart */}
       <motion.div
         variants={fadeUp}
-        className="mb-6 flex h-28 items-end gap-1.5"
+        className="mb-5 flex h-20 items-end gap-1.5"
       >
         {bars.map((h, i) => (
           <motion.div
@@ -314,9 +310,9 @@ function DashboardIllustration() {
       {/* Stats */}
       <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
         {[
-          { value: "127", label: "Feedback" },
-          { value: "4.8", label: "Media" },
-          { value: "92%", label: "Positivi" },
+          { value: "89", label: "Recensioni" },
+          { value: "+23", label: "Nuove" },
+          { value: "92%", label: "Positive" },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -365,13 +361,13 @@ export default function Home() {
           <AnimatedStars />
           <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
             <span className="bg-gradient-to-br from-foreground via-foreground/90 to-foreground/60 bg-clip-text text-transparent">
-              Trasforma i feedback in recensioni a 5 stelle
+              Più recensioni a 5 stelle su Google
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Raccogli le opinioni dei tuoi clienti con un QR code. I clienti
-            soddisfatti lasciano recensioni pubbliche, i feedback negativi
-            restano privati.
+            Raccogli feedback con un QR code. I clienti soddisfatti vengono
+            guidati a recensire su Google. I feedback negativi restano privati.
+            Monitora la crescita del tuo punteggio in tempo reale.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4">
             <Button
@@ -405,8 +401,8 @@ export default function Home() {
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
             I clienti soddisfatti se ne vanno in silenzio. Quelli insoddisfatti
-            corrono a scrivere recensioni negative. La tua reputazione online
-            non riflette la qualità reale del tuo locale.
+            corrono a scrivere su Google. Il tuo punteggio non riflette la
+            qualità reale del tuo locale.
           </p>
         </motion.div>
 
@@ -430,9 +426,9 @@ export default function Home() {
               },
               {
                 icon: Star,
-                title: "Guida il positivo",
+                title: "Guida il positivo su Google",
                 description:
-                  "Chi è felice viene indirizzato a lasciare una recensione su Google, TripAdvisor e le piattaforme che contano.",
+                  "Chi è felice viene guidato a lasciare una recensione su Google — la piattaforma che conta di più per farsi trovare da nuovi clienti.",
                 color: "text-amber-500",
                 bg: "bg-amber-500/10",
                 border: "border-amber-200",
@@ -600,19 +596,18 @@ export default function Home() {
                 3
               </div>
               <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Monitora e migliora
+                Monitora la crescita su Google
               </h3>
               <p className="mt-4 text-muted-foreground leading-relaxed">
-                Tutti i feedback in una dashboard intuitiva. Visualizza punteggi
-                medi, trend nel tempo, dettagli per ogni risposta e analisi del
-                sentiment. Ogni opinione è un&apos;opportunità per migliorare il
-                tuo servizio.
+                Collega il tuo ristorante su Google e monitora in tempo reale
+                come cresce il tuo punteggio e il numero di recensioni.
+                Confronta il prima e il dopo dall&apos;inizio con 5stelle.
               </p>
               <ul className="mt-6 space-y-3">
                 {[
-                  "Punteggio medio e trend",
-                  "Filtri per periodo e sentiment",
-                  "Dettaglio per singolo tavolo",
+                  "Rating e recensioni Google in tempo reale",
+                  "Confronto prima/dopo con baseline",
+                  "Stima delle recensioni generate da 5stelle",
                 ].map((item) => (
                   <li
                     key={item}
@@ -666,22 +661,25 @@ export default function Home() {
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                value: "70%",
+                value: "72%",
                 accent: "text-primary",
                 description:
-                  "dei clienti soddisfatti non lascia mai una recensione — a meno che non glielo chiedi al momento giusto.",
+                  "dei clienti lascia una recensione quando gli viene chiesto al momento giusto.",
+                source: "BrightLocal, 2024",
               },
               {
                 value: "1 su 3",
                 accent: "text-red-500",
                 description:
-                  "clienti insoddisfatti scrive una recensione negativa. Senza un filtro, queste finiscono online.",
+                  "clienti insoddisfatti scrive una recensione negativa su Google. Senza un filtro, queste rovinano il tuo punteggio.",
+                source: "ReviewTrackers",
               },
               {
-                value: "+40%",
+                value: "10x",
                 accent: "text-green-500",
                 description:
-                  "di recensioni positive in più nei primi 30 giorni grazie al routing intelligente di 5stelle.",
+                  "più propensi a scrivere una recensione i clienti insoddisfatti rispetto a quelli soddisfatti, senza un sistema che li guidi.",
+                source: "Zendesk",
               },
             ].map((stat) => (
               <motion.div
@@ -694,6 +692,9 @@ export default function Home() {
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
                   {stat.description}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground/60">
+                  Fonte: {stat.source}
                 </p>
               </motion.div>
             ))}
@@ -711,12 +712,12 @@ export default function Home() {
             La funzionalità più amata
           </span>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-            Più recensioni a 5 stelle,
-            <br className="hidden sm:block" /> in automatico
+            Clienti soddisfatti?
+            <br className="hidden sm:block" /> Portali su Google
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            Il cuore di 5stelle: i clienti soddisfatti vengono guidati a
-            lasciare recensioni pubbliche. I feedback negativi restano privati,
+            Il cuore di 5stelle: i clienti felici vengono guidati a
+            lasciare una recensione su Google. I feedback negativi restano privati,
             solo per te.
           </p>
         </motion.div>
@@ -757,26 +758,45 @@ export default function Home() {
                 </motion.div>
               </div>
 
-              {/* Platform review cards */}
-              <div className="space-y-2.5">
-                {reviewPlatforms.map((platform, i) => (
+              {/* Google primary CTA */}
+              <motion.div
+                className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-md border-2 border-amber-300"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.4, duration: 0.4 }}
+              >
+                <div className="flex size-10 items-center justify-center rounded-lg bg-white border shrink-0">
+                  <GoogleIcon className="size-5" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-semibold">Google</span>
+                  <div className="flex gap-0.5 mt-0.5">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <Star key={j} className="size-3 fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
+                </div>
+                <ExternalLink className="size-4 text-green-600" />
+              </motion.div>
+
+              {/* Secondary platforms */}
+              <div className="mt-2.5 space-y-2">
+                {secondaryPlatforms.map((platform, i) => (
                   <motion.div
                     key={platform.name}
-                    className="flex items-center justify-between rounded-xl bg-white p-3.5 shadow-sm"
+                    className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm"
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}
+                    transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
                   >
-                    <span className="text-sm font-medium">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {platform.name}
                     </span>
                     <div className="flex gap-0.5">
                       {Array.from({ length: platform.stars }).map((_, j) => (
-                        <Star
-                          key={j}
-                          className="size-3.5 fill-amber-400 text-amber-400"
-                        />
+                        <Star key={j} className="size-3 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
                   </motion.div>
@@ -785,7 +805,7 @@ export default function Home() {
 
               <div className="mt-5 flex items-center gap-2 text-sm font-medium text-green-700">
                 <ExternalLink className="size-4" />
-                Recensione pubblica a 5 stelle
+                Recensione a 5 stelle su Google
               </div>
             </motion.div>
 
@@ -862,113 +882,86 @@ export default function Home() {
           transition={{ delay: 0.2, duration: 0.5 }}
         >
           <p className="text-xl font-semibold leading-relaxed">
-            Proteggi la tua reputazione online.{" "}
+            Proteggi il tuo punteggio su Google.{" "}
             <span className="text-muted-foreground">
-              Solo i clienti felici lasciano recensioni pubbliche — i feedback
+              Solo i clienti felici vengono guidati a recensire — i feedback
               negativi arrivano direttamente a te, dandoti la possibilità di
-              migliorare.
+              migliorare senza danni alla reputazione.
             </span>
           </p>
         </motion.div>
       </section>
 
-      {/* ── Features ── */}
-      <motion.section className="border-t py-24" {...fadeIn}>
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-            Tutto quello che ti serve
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-            Strumenti pensati per i ristoratori che vogliono migliorare la
-            propria reputazione online.
-          </p>
-          <div className="mt-16 grid gap-6 sm:grid-cols-2">
-            {features.map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                whileHover={{ y: -4 }}
-              >
-                <Card className="h-full transition-shadow duration-300 hover:shadow-md">
-                  <CardHeader>
-                    <div className="mb-2 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                      <feature.icon className="size-6 text-foreground" />
-                    </div>
-                    <CardTitle>{feature.title}</CardTitle>
-                    <CardDescription className="text-sm leading-relaxed">
-                      {feature.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
       {/* ── Perfetto per te ── */}
-      <motion.section className="border-t bg-muted/50 py-24" {...fadeIn}>
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-            Perfetto per il tuo locale
+      <section className="border-t py-24">
+        <motion.div
+          className="mx-auto max-w-6xl px-6 text-center"
+          {...fadeIn}
+        >
+          <span className="mb-4 inline-block rounded-full border bg-background px-4 py-1.5 text-sm font-medium text-muted-foreground">
+            Per ogni tipo di locale
+          </span>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Le recensioni contano, in qualsiasi settore
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-            Qualunque sia il tuo tipo di attività, 5stelle si adatta alle tue
-            esigenze.
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            Che tu gestisca un ristorante, una pizzeria o un hotel — i clienti
+            cercano su Google prima di scegliere dove andare.
           </p>
-          <motion.div
-            className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-          >
+        </motion.div>
+
+        <motion.div
+          className="mx-auto mt-16 max-w-5xl px-6"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={stagger}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: UtensilsCrossed,
                 title: "Ristoranti",
-                tagline:
-                  "Ogni piatto racconta una storia. Scopri cosa pensano davvero i tuoi ospiti.",
+                stat: "77%",
+                statLabel: "dei clienti controlla Google prima di prenotare",
               },
               {
                 icon: Pizza,
                 title: "Pizzerie",
-                tagline:
-                  "Dalla margherita alla speciale: capisci quali creazioni conquistano di più.",
+                stat: "4.0+",
+                statLabel: "stelle necessarie per comparire nei risultati locali",
               },
               {
                 icon: Coffee,
                 title: "Bar & Caffetterie",
-                tagline:
-                  "Colazioni, aperitivi, pause caffè: ogni momento conta per i tuoi clienti.",
+                stat: "3x",
+                statLabel: "più visite per i locali con più di 50 recensioni",
               },
               {
                 icon: Hotel,
                 title: "Hotel",
-                tagline:
-                  "Dal check-in al check-out, ogni dettaglio dell'esperienza fa la differenza.",
+                stat: "94%",
+                statLabel: "degli ospiti evita strutture con recensioni negative",
               },
             ].map((venue) => (
               <motion.div
                 key={venue.title}
                 variants={fadeUp}
-                className="rounded-2xl border bg-background p-6 text-center"
+                className="rounded-2xl border bg-card p-6 text-center"
               >
-                <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-                  <venue.icon className="size-7 text-foreground" />
+                <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
+                  <venue.icon className="size-6 text-foreground" />
                 </div>
                 <h3 className="font-semibold">{venue.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  {venue.tagline}
+                <div className="mt-3 text-3xl font-bold text-primary">{venue.stat}</div>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  {venue.statLabel}
                 </p>
               </motion.div>
             ))}
-          </motion.div>
-        </div>
-      </motion.section>
+          </div>
+        </motion.div>
+      </section>
 
       {/* ── Pricing ── */}
       <motion.section className="py-24" {...fadeIn}>
@@ -1032,11 +1025,11 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,_rgba(0,0,0,0.04)_1px,_transparent_0)] bg-[size:32px_32px]" />
         <div className="relative mx-auto max-w-6xl px-6 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Pronto a migliorare le tue recensioni?
+            Pronto a far crescere le tue recensioni su Google?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
             Unisciti ai ristoratori che già usano 5stelle per trasformare il
-            feedback dei clienti in crescita reale.
+            feedback dei clienti in recensioni a 5 stelle.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4">
             <Button

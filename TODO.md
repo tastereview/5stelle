@@ -357,10 +357,12 @@
 - [x] Update dashboard page — query `review_prompt_shown_at IS NOT NULL` + `review_platform_clicked = 'google'`, pass to GoogleReviewsCard
 - [x] Update `src/components/dashboard/GoogleReviewsCard.tsx` — attribution section with prompt views, Google clicks, `min(googleClicks, newReviews)` estimate
 
-### 12.8 Landing Page Copy Update (do later, after feature is built)
-- [ ] Rewrite hero/value prop to lead with Google Reviews improvement
-- [ ] Add section showing the before/after tracking feature
-- [ ] Social proof angle: "Migliora le tue recensioni su Google"
+### 12.8 Landing Page Copy Update
+- [x] Rewrite hero/value prop to lead with Google Reviews ("Più recensioni a 5 stelle su Google")
+- [x] Add before/after tracking visual in Step 3 dashboard illustration (baseline → current rating with growth)
+- [x] Google as primary in routing visual (large card with gold border, secondary platforms smaller)
+- [x] Updated pain point, features, stats, pricing, and CTA copy to reference Google specifically
+- [x] "Monitoraggio Google Reviews" replaces "Dashboard analytics" in feature cards and pricing list
 
 ---
 

@@ -4,60 +4,76 @@ Hi, I'm continuing work on 5stelle.
 
 ## Session Context
 
-Last session (2026-04-10) implemented Phase 12.7: Review Prompt Click/View Tracking + Attribution, and fixed a hydration error on the dashboard. The next priorities are the remaining UX improvements (11.1, 11.3, 11.4) and landing page copy (12.8).
+Last session (2026-04-12) implemented smart OK-sentiment routing (11.3), preview banner (11.1), redesigned the QuickStartChecklist (11.4), and rewrote the landing page copy to focus on Google Reviews (12.8).
 
 ## What Was Done
 
-### Phase 12.7: Review Prompt Click/View Tracking (implemented)
-- Added 3 columns to `submissions` table: `review_prompt_shown_at`, `review_link_clicked_at`, `review_platform_clicked` (migration already run)
-- Updated `ReviewPromptClient.tsx`: tracks prompt view on mount (`review_prompt_shown_at`), tracks first link click with platform key (first click wins via ref guard), skipped in preview mode
-- Updated dashboard `page.tsx`: queries prompt views (`review_prompt_shown_at IS NOT NULL`) and Google-specific clicks (`review_platform_clicked = 'google'`), passes counts to GoogleReviewsCard
-- Updated `GoogleReviewsCard.tsx`: new attribution section showing "Invitati a recensire: X", "Hanno cliccato: Y", and conservative attribution estimate `min(googleClicks, newReviews)`
+### Phase 11.3: Smart Routing for "OK" Sentiment
+- Instead of removing the "OK" option, keep all 3 sentiments but route "OK" customers to Google when their internal star ratings suggest they'd leave a 4+ review
+- `QuestionPageClient.tsx`: saves star ratings to sessionStorage (`feedback_star_ratings`, keyed by question ID) alongside existing answer saves
+- `ReviewPromptClient.tsx`: routing logic updated — `great` → Google CTA; `ok` + avg star rating ≥ 3.5 → Google CTA; `ok` without star questions → reward; `bad` → reward
+- Countdown timer and render guards updated to work with both `great` and qualifying `ok` customers
 
-### Bug fix: Dashboard hydration error
-- `QuickStartChecklist.tsx` was reading `localStorage` during `useState` initialization (server/client branch), causing hydration mismatch
-- Fixed by moving localStorage read to `useEffect` — both server and client now start with `dismissed = false`, client updates after mount
+### Phase 11.1: Preview Banner
+- Added `PreviewBanner.tsx` client component — reads `?preview` from URL, shows amber bar: "Modalità anteprima — i dati non vengono salvati"
+- Rendered in the feedback flow layout (`src/app/r/[restaurantSlug]/[formId]/layout.tsx`), covers all pages (questions, review, reward)
+- All other preview infrastructure (signed tokens, DB skip, form builder button) was already in place
+
+### Phase 11.4: QuickStartChecklist Redesign
+- Skipped guided tutorial — dashboard is simple enough, checklist covers it
+- Redesigned checklist: now a `ListChecks` icon button in the top-right of the dashboard header with a badge showing remaining steps count
+- Clicking opens a dialog with the full checklist (progress bar, numbered steps, links)
+- Shows whenever there are incomplete steps (removed `stats.total === 0` gate), auto-hides when all 4 done
+- No localStorage collapse state needed — much simpler
+
+### Phase 12.8: Landing Page Google Focus
+- Hero rewritten: "Più recensioni a 5 stelle su Google" + subtitle mentions Google tracking
+- Pain point section: references Google specifically
+- Step 3 (Dashboard): renamed to "Monitora la crescita su Google", illustration redesigned with Google icon, before/after rating (4.2 → 4.6), growth indicator
+- Reviews routing visual: Google as primary with gold border and large card, secondary platforms smaller
+- Stats section: replaced made-up numbers with real sourced stats (BrightLocal, ReviewTrackers, Zendesk) with "Fonte:" citations
+- "Tutto quello che ti serve" features section: removed (redundant with step-by-step)
+- "Perfetto per il tuo locale": kept venue types but replaced generic taglines with stats per venue type tied to Google reviews
+- Features list, pricing features, CTA copy all updated to reference Google
+- Used actual `GoogleIcon` component instead of text "G" in illustrations
 
 ## What Changed
 
 **Modified files:**
-- `src/types/database.types.ts` — Added 3 tracking fields to submissions Row/Insert/Update
-- `src/components/feedback/ReviewPromptClient.tsx` — Added Supabase client import, prompt view tracking on mount, click tracking with platform key (first click wins)
-- `src/app/(dashboard)/dashboard/page.tsx` — Added queries for promptViews and googleClicks, passed to GoogleReviewsCard
-- `src/components/dashboard/GoogleReviewsCard.tsx` — Added promptViews/googleClicks props, attribution section with Eye/MousePointerClick icons
-- `src/components/dashboard/QuickStartChecklist.tsx` — Fixed hydration error (localStorage read moved to useEffect)
-- `TODO.md` — Marked 12.7 tasks complete
-- `.env.local` — Re-added `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` (keys were missing on this machine)
+- `src/components/feedback/QuestionPageClient.tsx` — star rating sessionStorage tracking
+- `src/components/feedback/ReviewPromptClient.tsx` — smart routing logic for OK sentiment
+- `src/app/r/[restaurantSlug]/[formId]/layout.tsx` — PreviewBanner in layout
+- `src/components/dashboard/QuickStartChecklist.tsx` — full rewrite (icon button + dialog)
+- `src/app/(dashboard)/dashboard/page.tsx` — checklist placement (inline with header)
+- `src/app/page.tsx` — landing page copy rewrite
+- `TODO.md` — marked 11.1, 11.3, 11.4, 12.8 complete
 
-**DB migration already run:**
-- 3 columns added to `submissions`: `review_prompt_shown_at`, `review_link_clicked_at`, `review_platform_clicked`
+**New files:**
+- `src/components/feedback/PreviewBanner.tsx` — preview mode banner
 
 ## Decisions Made
 
-- **Google-specific click count** — Dashboard queries `review_platform_clicked = 'google'` specifically, not just any click. The GoogleReviewsCard is about Google attribution.
-- **First click wins** — Only the first link click per submission is recorded (via ref guard). Prevents overwriting a Google click if user subsequently clicks another platform.
-- **Conservative attribution** — `min(googleClicks, newReviews)` is the estimate. Never claims more reviews than actually appeared on Google.
+- **Keep 3 sentiments** — "OK" customers with high star ratings (avg ≥ 3.5) get routed to Google, not removed entirely. Maximizes reviews without risking low ratings.
+- **No guided tutorial** — QuickStartChecklist with icon button + dialog is sufficient for a simple B2B dashboard.
+- **Real stats on landing page** — replaced made-up numbers with sourced industry stats from BrightLocal, ReviewTrackers, Zendesk.
 
 ## Current State
 
 - Branch: `dev`, working directory is **dirty** (changes not committed)
-- Phase 12.7 is complete — tracking columns exist, client tracks views/clicks, dashboard shows attribution
-- Google Places API key and CRON_SECRET are in `.env.local`
-- Neither key is in Netlify env vars yet (local dev only)
+- All Phase 11 UX improvements complete (11.1, 11.2, 11.3, 11.4, 11.5)
+- Phase 12.8 landing page rewrite complete
+- Google Places API key and CRON_SECRET are in `.env.local` (not in Netlify yet)
 - Email confirmation for signups is currently disabled in Supabase Auth
 
 ## What's Next
 
-1. **11.3 Sentiment: 2 Options** — Remove "OK" middle option, keep "Ottimo!" / "Poteva andare meglio". Update routing, types, dashboard.
-
-2. **11.1 Preview Mode** — Preview route that doesn't save submissions, with visual banner.
-
-3. **11.4 Guided Tutorial** — Onboarding tour for first-time dashboard users.
-
-4. **12.8 Landing Page Copy** — Rewrite to lead with Google Reviews value prop.
+1. **10.3 OpenGraph image + favicon**
+2. **13.1 Pre-production** — Add env vars to Netlify, restrict Google API key, update Supabase Auth URLs, decide on email confirmation
+3. **10.5 Full testing pass** — All flows, mobile, edge cases
+4. **10.6 Launch** — Final deployment
 
 **Key files to read first:**
 - `TODO.md` — Full task tracking
-- `src/components/feedback/ReviewPromptClient.tsx` — Click/view tracking implementation
-- `src/components/dashboard/GoogleReviewsCard.tsx` — Attribution display
-- `src/app/(dashboard)/dashboard/page.tsx` — Dashboard data fetching
+- `src/components/feedback/ReviewPromptClient.tsx` — Smart routing logic
+- `src/components/dashboard/QuickStartChecklist.tsx` — Setup checklist
+- `src/app/page.tsx` — Landing page
