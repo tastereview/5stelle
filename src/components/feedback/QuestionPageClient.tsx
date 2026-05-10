@@ -156,6 +156,37 @@ export function QuestionPageClient({
     return true
   })()
 
+  const logClientError = async (
+    context: string,
+    err: unknown,
+    extra?: Record<string, unknown>
+  ) => {
+    try {
+      const error = err as { message?: string; code?: string; details?: string; hint?: string } | null
+      await supabase.from('client_errors').insert({
+        context,
+        message: error?.message ?? (err !== null && err !== undefined ? String(err) : null),
+        code: error?.code ?? null,
+        details: error?.details ?? error?.hint ?? null,
+        metadata: {
+          form_id: formId,
+          restaurant_slug: restaurantSlug,
+          question_id: question.id,
+          question_type: question.type,
+          question_index: questionIndex,
+          is_last: isLast,
+          has_turnstile_token: !!turnstileToken,
+          submission_id: sessionStorage.getItem(SUBMISSION_KEY),
+          table_identifier: tableIdentifier,
+          ...extra,
+        },
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      })
+    } catch (logErr) {
+      console.error('Failed to log to client_errors', logErr)
+    }
+  }
+
   const handleNext = async () => {
     setIsSubmitting(true)
     setDirection('forward')
@@ -175,6 +206,10 @@ export function QuestionPageClient({
             const verifyData = await verifyRes.json()
 
             if (!verifyData.success) {
+              await logClientError('feedback_flow:turnstile_verify_failed', null, {
+                verify_status: verifyRes.status,
+                verify_response: verifyData,
+              })
               toast.error('Verifica di sicurezza fallita. Riprova.')
               setIsSubmitting(false)
               return
@@ -193,8 +228,11 @@ export function QuestionPageClient({
       } else {
         router.push(`/r/${restaurantSlug}/${formId}/${questionIndex + 1}${navQuery}`)
       }
-    } catch {
-      console.error('Failed to save answer')
+    } catch (err) {
+      console.error('save_answer failed', err)
+      if (!isPreview) {
+        await logClientError('feedback_flow:save_answer', err)
+      }
       toast.error('Errore nel salvare la risposta. Riprova.')
     } finally {
       setIsSubmitting(false)

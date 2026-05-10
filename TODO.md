@@ -375,11 +375,44 @@
 - [ ] Update Supabase Auth URL config — change Site URL from `localhost` to `https://5stelle.app` + add redirect URLs
 - [ ] Decide on email confirmation for signups (currently disabled — fine for B2B manual onboarding, risky if public signups)
 
+### 13.2 Deployment Sync
+- [ ] **Merge dev → master** — dev is 6 commits ahead of master, prod is missing Turnstile auto-refresh, slug race fix, soft-delete questions, disable Avanti, Google Reviews tracking, review prompt tracking, smart OK routing, preview banner, Google-focused landing, and the new client_errors logging. Confirm Netlify deploys from master before merging.
+
+---
+
+## Phase 14: Production Observability
+
+> Added 2026-05-10 after the first client reported intermittent issues on the live app (save errors, UI freezes, slow saves). The catch in `QuestionPageClient.tsx` was discarding error objects, leaving us blind. Now we capture and persist them server-side.
+
+### 14.1 client_errors Table
+- [x] Create `public.client_errors` table on Supabase: `id`, `occurred_at`, `context`, `message`, `code`, `details`, `metadata` (jsonb), `user_agent`. RLS enabled with INSERT-only policy for anon + authenticated. SELECT via Supabase Studio (service_role bypasses RLS).
+- [x] Index on `occurred_at DESC` for recent-errors queries.
+
+### 14.2 Logging in Feedback Flow
+- [x] `src/components/feedback/QuestionPageClient.tsx` — capture `err` in catch, add `logClientError` helper inserting to `client_errors` with form_id, restaurant_slug, question_id, question_type, question_index, is_last, has_turnstile_token, submission_id, table_identifier, user_agent.
+- [x] Two log sites: `feedback_flow:save_answer` (main catch — submission/answer/sentiment/complete writes + Turnstile fetch failures) and `feedback_flow:turnstile_verify_failed` (Turnstile success=false, previously invisible).
+- [x] Skipped in preview mode.
+
+### 14.3 Open
+- [ ] After phone testing post-merge: review `client_errors` and address root causes of save failures.
+- [ ] If "freeze" symptom doesn't surface in `client_errors` (it's a hung promise, not a thrown error), add timeout-based instrumentation around the Supabase calls in QuestionPageClient and log slow saves.
+- [ ] Consider extending logging to other catch sites if dashboard or form-builder errors become a debugging concern (`LinksClient.tsx:69`, `SettingsClient.tsx:44`, `FormBuilderClient.tsx:52/80/264`).
+
+### 14.4 How to Check Logs
+```sql
+select occurred_at, context, message, code, details, metadata, user_agent
+from public.client_errors
+order by occurred_at desc
+limit 50;
+```
+Or open Supabase Studio → Table Editor → `client_errors`.
+
 ---
 
 ## Known Issues
 
 - **Duplicate sentiment question** — User reported seeing duplicate sentiment question in feedback flow. Likely a data issue (duplicate question rows in DB), not a code bug. Check with: `SELECT id, label, type, order_index, is_active FROM questions WHERE form_id = '<FORM_ID>' ORDER BY order_index;`
+- **Intermittent feedback flow failures on live app (reported 2026-05-10)** — three symptoms: "Errore nel salvare la risposta" toast, UI freezes, slow saves. Suspected causes: Turnstile token expiry (already fixed in `2c52488`, awaiting merge to master) + Supabase post-resume cold-start latency. Phase 14 logging now in place to surface root causes.
 
 ---
 

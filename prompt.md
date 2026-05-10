@@ -4,76 +4,66 @@ Hi, I'm continuing work on 5stelle.
 
 ## Session Context
 
-Last session (2026-04-12) implemented smart OK-sentiment routing (11.3), preview banner (11.1), redesigned the QuickStartChecklist (11.4), and rewrote the landing page copy to focus on Google Reviews (12.8).
+Last session (2026-05-10) diagnosed intermittent issues on the live app during real-device phone testing for the first client, and added client-error logging to the feedback flow so future failures can be inspected from Supabase. Dev is ahead of master by 6 commits and prod was missing important fixes.
 
-## What Was Done
+## Symptoms Reported on Phone (Live App)
 
-### Phase 11.3: Smart Routing for "OK" Sentiment
-- Instead of removing the "OK" option, keep all 3 sentiments but route "OK" customers to Google when their internal star ratings suggest they'd leave a 4+ review
-- `QuestionPageClient.tsx`: saves star ratings to sessionStorage (`feedback_star_ratings`, keyed by question ID) alongside existing answer saves
-- `ReviewPromptClient.tsx`: routing logic updated — `great` → Google CTA; `ok` + avg star rating ≥ 3.5 → Google CTA; `ok` without star questions → reward; `bad` → reward
-- Countdown timer and render guards updated to work with both `great` and qualifying `ok` customers
+1. "Errore nel salvare la risposta" toast — sometimes blocks progression
+2. UI freezes (taps on stars/buttons don't register, then unfreezes after a moment)
+3. Slow answer saves — eventually works but takes a while
 
-### Phase 11.1: Preview Banner
-- Added `PreviewBanner.tsx` client component — reads `?preview` from URL, shows amber bar: "Modalità anteprima — i dati non vengono salvati"
-- Rendered in the feedback flow layout (`src/app/r/[restaurantSlug]/[formId]/layout.tsx`), covers all pages (questions, review, reward)
-- All other preview infrastructure (signed tokens, DB skip, form builder button) was already in place
+Strong suspects: (a) Turnstile token expiring without auto-refresh — already fixed in `2c52488` but not yet deployed to prod; (b) Supabase post-resume cold-start latency (project recently came back from pause).
 
-### Phase 11.4: QuickStartChecklist Redesign
-- Skipped guided tutorial — dashboard is simple enough, checklist covers it
-- Redesigned checklist: now a `ListChecks` icon button in the top-right of the dashboard header with a badge showing remaining steps count
-- Clicking opens a dialog with the full checklist (progress bar, numbered steps, links)
-- Shows whenever there are incomplete steps (removed `stats.total === 0` gate), auto-hides when all 4 done
-- No localStorage collapse state needed — much simpler
+## Critical State
 
-### Phase 12.8: Landing Page Google Focus
-- Hero rewritten: "Più recensioni a 5 stelle su Google" + subtitle mentions Google tracking
-- Pain point section: references Google specifically
-- Step 3 (Dashboard): renamed to "Monitora la crescita su Google", illustration redesigned with Google icon, before/after rating (4.2 → 4.6), growth indicator
-- Reviews routing visual: Google as primary with gold border and large card, secondary platforms smaller
-- Stats section: replaced made-up numbers with real sourced stats (BrightLocal, ReviewTrackers, Zendesk) with "Fonte:" citations
-- "Tutto quello che ti serve" features section: removed (redundant with step-by-step)
-- "Perfetto per il tuo locale": kept venue types but replaced generic taglines with stats per venue type tied to Google reviews
-- Features list, pricing features, CTA copy all updated to reference Google
-- Used actual `GoogleIcon` component instead of text "G" in illustrations
+- **Dev is ahead of master by 6 commits** (5 from before + 1 from this session). Production deploys from master (confirm in Netlify UI). Merge dev → master to get all fixes + logging live.
+- **All DB migrations are live on Supabase** — verified this session: `questions.is_active`, `submissions.review_prompt_shown_at` / `review_link_clicked_at` / `review_platform_clicked`, `review_snapshots`, and the new `client_errors` table. Single Supabase project covers dev + prod.
+- **Netlify env vars NOT set:** `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` (TODO 13.1). Not blocking current testing (existing client is past onboarding, cron just no-ops without secret), but onboarding will 500 on the Google search step for any new signup until added.
+- **`database-schema.sql` was just regenerated** from the live DB — it now reflects actual prod state including `client_errors`.
 
-## What Changed
+## What Was Done This Session
 
-**Modified files:**
-- `src/components/feedback/QuestionPageClient.tsx` — star rating sessionStorage tracking
-- `src/components/feedback/ReviewPromptClient.tsx` — smart routing logic for OK sentiment
-- `src/app/r/[restaurantSlug]/[formId]/layout.tsx` — PreviewBanner in layout
-- `src/components/dashboard/QuickStartChecklist.tsx` — full rewrite (icon button + dialog)
-- `src/app/(dashboard)/dashboard/page.tsx` — checklist placement (inline with header)
-- `src/app/page.tsx` — landing page copy rewrite
-- `TODO.md` — marked 11.1, 11.3, 11.4, 12.8 complete
+### `client_errors` table created on Supabase
+```sql
+create table public.client_errors (
+  id          uuid default gen_random_uuid() primary key,
+  occurred_at timestamptz default now() not null,
+  context     text, message text, code text, details text,
+  metadata    jsonb, user_agent text
+);
+alter table public.client_errors enable row level security;
+create policy "Anyone can insert errors" on public.client_errors
+  for insert to anon, authenticated with check (true);
+create index idx_client_errors_occurred_at
+  on public.client_errors (occurred_at desc);
+```
+No SELECT policy → clients can't read each other's errors. Read via Supabase Studio (service_role bypasses RLS).
 
-**New files:**
-- `src/components/feedback/PreviewBanner.tsx` — preview mode banner
+### Logging wired in `src/components/feedback/QuestionPageClient.tsx`
+- Catch now captures the error (`} catch (err) {` instead of `} catch {`) — previously the error object was being discarded entirely
+- New `logClientError` helper inserts to `client_errors` with full metadata: form_id, restaurant_slug, question_id, question_type, question_index, is_last, has_turnstile_token, submission_id, table_identifier, user_agent
+- Two log sites:
+  - `feedback_flow:save_answer` — main catch (covers submission insert, answer upsert, sentiment update, complete update, Turnstile fetch network failures)
+  - `feedback_flow:turnstile_verify_failed` — Turnstile returned `success: false` (previously a silent non-throw failure path)
+- Skipped in preview mode
 
-## Decisions Made
+## What's Next (in order)
 
-- **Keep 3 sentiments** — "OK" customers with high star ratings (avg ≥ 3.5) get routed to Google, not removed entirely. Maximizes reviews without risking low ratings.
-- **No guided tutorial** — QuickStartChecklist with icon button + dialog is sufficient for a simple B2B dashboard.
-- **Real stats on landing page** — replaced made-up numbers with sourced industry stats from BrightLocal, ReviewTrackers, Zendesk.
+1. **Commit (already done as the last commit on dev) + merge dev → master** so prod gets the Turnstile auto-refresh fix, the smart OK-routing, the Google Reviews tracking, and the new error logging.
+2. **Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify** env vars (TODO 13.1).
+3. **Phone-test the live app** to reproduce the symptoms, then **check the logs**:
+   ```sql
+   select occurred_at, context, message, code, details, metadata, user_agent
+   from public.client_errors
+   order by occurred_at desc
+   limit 50;
+   ```
+   Or in Supabase Studio → Table Editor → `client_errors`.
+4. **If logs explain the save errors** → fix root causes (likely RLS, constraint, or post-resume connection issues). **If the freeze symptom doesn't appear in logs** (likely — that's a hung promise, not a thrown error), add timeout-based instrumentation around the Supabase calls in QuestionPageClient.
+5. After stability is confirmed: **10.3 OG image + favicon**, **10.5 full testing pass**, **10.6 launch**.
 
-## Current State
+## Key Files
 
-- Branch: `dev`, working directory is **dirty** (changes not committed)
-- All Phase 11 UX improvements complete (11.1, 11.2, 11.3, 11.4, 11.5)
-- Phase 12.8 landing page rewrite complete
-- Google Places API key and CRON_SECRET are in `.env.local` (not in Netlify yet)
-- Email confirmation for signups is currently disabled in Supabase Auth
-
-## What's Next
-
-1. **10.3 OpenGraph image + favicon**
-2. **13.1 Pre-production** — Add env vars to Netlify, restrict Google API key, update Supabase Auth URLs, decide on email confirmation
-3. **10.5 Full testing pass** — All flows, mobile, edge cases
-4. **10.6 Launch** — Final deployment
-
-**Key files to read first:**
-- `TODO.md` — Full task tracking
-- `src/components/feedback/ReviewPromptClient.tsx` — Smart routing logic
-- `src/components/dashboard/QuickStartChecklist.tsx` — Setup checklist
-- `src/app/page.tsx` — Landing page
+- `TODO.md` — task tracking (Phase 14 added for observability)
+- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + client error logging
+- `database-schema.sql` — current live schema (regenerated this session)

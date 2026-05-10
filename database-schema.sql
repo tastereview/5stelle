@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict THLyd4BtexdLdkZ8dDPZJIEVtfw8oDPvaicrsRBMwV1nveB66gsv4tsihp1bfwx
+\restrict yYqoh2Ox15xJftSpsAbiTvF4hyxrXi09QJF8BoA7YHgXuA5tHjCjVMDfIN3CajO
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -53,6 +53,24 @@ CREATE TABLE public.answers (
 
 
 ALTER TABLE public.answers OWNER TO postgres;
+
+--
+-- Name: client_errors; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.client_errors (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    context text,
+    message text,
+    code text,
+    details text,
+    metadata jsonb,
+    user_agent text
+);
+
+
+ALTER TABLE public.client_errors OWNER TO postgres;
 
 --
 -- Name: forms; Type: TABLE; Schema: public; Owner: postgres
@@ -183,6 +201,14 @@ ALTER TABLE ONLY public.answers
 
 
 --
+-- Name: client_errors client_errors_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.client_errors
+    ADD CONSTRAINT client_errors_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: forms forms_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -251,6 +277,13 @@ ALTER TABLE ONLY public.tables
 --
 
 CREATE INDEX idx_answers_submission_id ON public.answers USING btree (submission_id);
+
+
+--
+-- Name: idx_client_errors_occurred_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_client_errors_occurred_at ON public.client_errors USING btree (occurred_at DESC);
 
 
 --
@@ -371,6 +404,13 @@ ALTER TABLE ONLY public.submissions
 
 ALTER TABLE ONLY public.tables
     ADD CONSTRAINT tables_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: client_errors Anyone can insert errors; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Anyone can insert errors" ON public.client_errors FOR INSERT TO authenticated, anon WITH CHECK (true);
 
 
 --
@@ -615,6 +655,12 @@ CREATE POLICY "Users can view own tables" ON public.tables FOR SELECT USING ((EX
 ALTER TABLE public.answers ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: client_errors; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.client_errors ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: forms; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
@@ -667,6 +713,15 @@ GRANT USAGE ON SCHEMA public TO service_role;
 GRANT ALL ON TABLE public.answers TO anon;
 GRANT ALL ON TABLE public.answers TO authenticated;
 GRANT ALL ON TABLE public.answers TO service_role;
+
+
+--
+-- Name: TABLE client_errors; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.client_errors TO anon;
+GRANT ALL ON TABLE public.client_errors TO authenticated;
+GRANT ALL ON TABLE public.client_errors TO service_role;
 
 
 --
@@ -787,5 +842,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 -- PostgreSQL database dump complete
 --
 
-\unrestrict THLyd4BtexdLdkZ8dDPZJIEVtfw8oDPvaicrsRBMwV1nveB66gsv4tsihp1bfwx
+\unrestrict yYqoh2Ox15xJftSpsAbiTvF4hyxrXi09QJF8BoA7YHgXuA5tHjCjVMDfIN3CajO
 
