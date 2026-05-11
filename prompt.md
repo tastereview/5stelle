@@ -4,66 +4,50 @@ Hi, I'm continuing work on 5stelle.
 
 ## Session Context
 
-Last session (2026-05-10) diagnosed intermittent issues on the live app during real-device phone testing for the first client, and added client-error logging to the feedback flow so future failures can be inspected from Supabase. Dev is ahead of master by 6 commits and prod was missing important fixes.
-
-## Symptoms Reported on Phone (Live App)
-
-1. "Errore nel salvare la risposta" toast — sometimes blocks progression
-2. UI freezes (taps on stars/buttons don't register, then unfreezes after a moment)
-3. Slow answer saves — eventually works but takes a while
-
-Strong suspects: (a) Turnstile token expiring without auto-refresh — already fixed in `2c52488` but not yet deployed to prod; (b) Supabase post-resume cold-start latency (project recently came back from pause).
+Last session (2026-05-11) focused on Google Places API hardening before adding the key to Netlify. Verified that dev/master are already in sync (the previous prompt was stale on this — all four refs point to `51fced4`, prod already has all recent fixes including `client_errors` logging). The Netlify env var setup got paused mid-Cloud-Console walkthrough.
 
 ## Critical State
 
-- **Dev is ahead of master by 6 commits** (5 from before + 1 from this session). Production deploys from master (confirm in Netlify UI). Merge dev → master to get all fixes + logging live.
-- **All DB migrations are live on Supabase** — verified this session: `questions.is_active`, `submissions.review_prompt_shown_at` / `review_link_clicked_at` / `review_platform_clicked`, `review_snapshots`, and the new `client_errors` table. Single Supabase project covers dev + prod.
-- **Netlify env vars NOT set:** `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` (TODO 13.1). Not blocking current testing (existing client is past onboarding, cron just no-ops without secret), but onboarding will 500 on the Google search step for any new signup until added.
-- **`database-schema.sql` was just regenerated** from the live DB — it now reflects actual prod state including `client_errors`.
+- **dev/master in sync** — production is current. No merge needed.
+- **All DB migrations are live on Supabase** — `questions.is_active`, `submissions.review_prompt_*`, `review_snapshots`, `client_errors`. Single Supabase project covers dev + prod.
+- **Netlify env vars STILL NOT SET:** `GOOGLE_PLACES_API_KEY` and `CRON_SECRET`. Both values already exist in local `.env.local` — just need copying to Netlify. Without these: any new restaurant signup will 500 on the Google search step, and the daily cron will return 500 with "CRON_SECRET not set".
+- **Google Cloud key hardening — partial:** Step 1 done (API restrictions limited to "Places API (New)" only — was previously unrestricted). Steps 2 (daily quota caps) and 3 (billing budget alert) still pending. See TODO 13.1 for the exact numbers and click paths.
 
-## What Was Done This Session
+## Pricing Refresher (Places API New, server-side)
 
-### `client_errors` table created on Supabase
-```sql
-create table public.client_errors (
-  id          uuid default gen_random_uuid() primary key,
-  occurred_at timestamptz default now() not null,
-  context     text, message text, code text, details text,
-  metadata    jsonb, user_agent text
-);
-alter table public.client_errors enable row level security;
-create policy "Anyone can insert errors" on public.client_errors
-  for insert to anon, authenticated with check (true);
-create index idx_client_errors_occurred_at
-  on public.client_errors (occurred_at desc);
-```
-No SELECT policy → clients can't read each other's errors. Read via Supabase Studio (service_role bypasses RLS).
+What the code calls and the SKU each triggers:
+- `places:autocomplete` — $2.83/1k (default tier)
+- `places/{id}` with field mask including `rating, userRatingCount, reviews` — **$25.00/1k (Enterprise tier)** — this is the expensive one. Called once per onboarding + once per restaurant per day from the cron
+- `places/{name}/media` (photo) — $7.00/1k, only on onboarding
 
-### Logging wired in `src/components/feedback/QuestionPageClient.tsx`
-- Catch now captures the error (`} catch (err) {` instead of `} catch {`) — previously the error object was being discarded entirely
-- New `logClientError` helper inserts to `client_errors` with full metadata: form_id, restaurant_slug, question_id, question_type, question_index, is_last, has_turnstile_token, submission_id, table_identifier, user_agent
-- Two log sites:
-  - `feedback_flow:save_answer` — main catch (covers submission insert, answer upsert, sentiment update, complete update, Turnstile fetch network failures)
-  - `feedback_flow:turnstile_verify_failed` — Turnstile returned `success: false` (previously a silent non-throw failure path)
-- Skipped in preview mode
+$200/month free credit ≈ 8k Place Details calls. ~250 active restaurants before going over the free tier.
 
 ## What's Next (in order)
 
-1. **Commit (already done as the last commit on dev) + merge dev → master** so prod gets the Turnstile auto-refresh fix, the smart OK-routing, the Google Reviews tracking, and the new error logging.
-2. **Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify** env vars (TODO 13.1).
-3. **Phone-test the live app** to reproduce the symptoms, then **check the logs**:
+1. **Finish Google Cloud hardening** (TODO 13.1):
+   - Step 2: Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits. Cap: Autocomplete=2000/day, Place Details Enterprise=200/day, Place Photos=100/day. User was about to do this — they may need help finding the exact quota row names (Google's UI is dense; "Place Details Enterprise" might appear as "Place Details (Enterprise) per day" or similar)
+   - Step 3: Cloud Console → Billing → Budgets & alerts → €10/month budget with 50/90/100% email alerts
+2. **Add env vars to Netlify** (`GOOGLE_PLACES_API_KEY`, `CRON_SECRET`) — values are in local `.env.local`. Use dashboard or `netlify env:set`. Scope = "All deploy contexts"
+3. **Verify cron works after deploy:**
+   ```
+   curl -i -X POST https://5stelle.app/api/cron/review-snapshots \
+     -H "Authorization: Bearer <CRON_SECRET>"
+   ```
+   Expect 200, not 401/500
+4. **Phone-test the live app** to reproduce the save-error / freeze symptoms, then check `client_errors`:
    ```sql
    select occurred_at, context, message, code, details, metadata, user_agent
    from public.client_errors
    order by occurred_at desc
    limit 50;
    ```
-   Or in Supabase Studio → Table Editor → `client_errors`.
-4. **If logs explain the save errors** → fix root causes (likely RLS, constraint, or post-resume connection issues). **If the freeze symptom doesn't appear in logs** (likely — that's a hung promise, not a thrown error), add timeout-based instrumentation around the Supabase calls in QuestionPageClient.
-5. After stability is confirmed: **10.3 OG image + favicon**, **10.5 full testing pass**, **10.6 launch**.
+5. **If the freeze symptom doesn't appear in logs** (likely — hung promise, not thrown error), add timeout-based instrumentation around Supabase calls in `src/components/feedback/QuestionPageClient.tsx`
+6. After stability is confirmed: **10.3 OG image + favicon**, **10.5 full testing pass**, **10.6 launch**
 
 ## Key Files
 
-- `TODO.md` — task tracking (Phase 14 added for observability)
-- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + client error logging
-- `database-schema.sql` — current live schema (regenerated this session)
+- `TODO.md` — task tracking (Phase 13.1 has the granular Google Cloud steps)
+- `src/lib/google-places.ts` — Places API call sites (Autocomplete, Place Details with `rating,userRatingCount,reviews,photos` field mask, Photo media)
+- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + `logClientError` helper
+- `netlify/functions/daily-review-snapshots.mts` — cron trigger that calls `/api/cron/review-snapshots` with `Bearer ${CRON_SECRET}`
+- `database-schema.sql` — current live schema

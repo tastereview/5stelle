@@ -369,14 +369,19 @@
 ## Phase 13: Pre-Production Checklist
 
 ### 13.1 Environment & Security
-- [ ] Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify env vars
-- [ ] Add API restrictions to Google Places API key (Places API New only) + application restrictions
-- [ ] Google Cloud project is on main account — consider moving to separate account later
+- [ ] Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify env vars (values already exist in local `.env.local` — copy to Netlify dashboard or `netlify env:set`). Set scope to "All deploy contexts"
+- [ ] Verify cron after deploy: `curl -i -X POST https://5stelle.app/api/cron/review-snapshots -H "Authorization: Bearer <CRON_SECRET>"` → should return 200
+- **Google Places API key hardening (in progress 2026-05-11 session):**
+  - [x] Step 1: API restrictions — key restricted to "Places API (New)" only (was previously unrestricted, accessible to all 33 enabled APIs)
+  - [ ] Step 2: Daily quota caps in Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits. Recommended: `Autocomplete Requests per day = 2000`, `Place Details Enterprise Requests per day = 200`, `Place Photos Requests per day = 100`. Worst-case ceiling ≈ $11/day
+  - [ ] Step 3: Billing budget alert — Cloud Console → Billing → Budgets & alerts → Create €10/month budget with 50/90/100% email alerts to filippoaggio@gmail.com
+  - [ ] Application restrictions: leave "None" (server-to-server calls, no referrer header)
+- [ ] Google Cloud project is on main personal account — consider moving to dedicated account later
 - [ ] Update Supabase Auth URL config — change Site URL from `localhost` to `https://5stelle.app` + add redirect URLs
 - [ ] Decide on email confirmation for signups (currently disabled — fine for B2B manual onboarding, risky if public signups)
 
 ### 13.2 Deployment Sync
-- [ ] **Merge dev → master** — dev is 6 commits ahead of master, prod is missing Turnstile auto-refresh, slug race fix, soft-delete questions, disable Avanti, Google Reviews tracking, review prompt tracking, smart OK routing, preview banner, Google-focused landing, and the new client_errors logging. Confirm Netlify deploys from master before merging.
+- [x] **Merge dev → master** — verified 2026-05-11: all four refs (`master`, `dev`, `origin/master`, `origin/dev`) point to `51fced4`. Prod has Turnstile auto-refresh, slug race fix, soft-delete questions, disable Avanti, Google Reviews tracking, review prompt tracking, smart OK routing, preview banner, Google-focused landing, and `client_errors` logging
 
 ---
 
