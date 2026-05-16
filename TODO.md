@@ -230,7 +230,7 @@
 - [ ] Configure custom domain
 - [x] Enable Stripe live mode
 - [x] Connected Netlify for auto-deploy
-- [ ] **Update Supabase Auth URL config** — change Site URL from `localhost` to `https://5stelle.app` + add `https://5stelle.app/auth/callback**` to Redirect URLs
+- [x] **Update Supabase Auth URL config** — done 2026-05-16: Site URL = `https://5stelle.app`, Redirect URLs include `https://5stelle.app/auth/callback**`. Also fixed a typo (`ttps://...` → `https://...`) on one of the redirect URLs that would have silently broken password-reset flow.
 - [ ] Final deployment
 - [ ] Monitor for errors
 
@@ -369,15 +369,14 @@
 ## Phase 13: Pre-Production Checklist
 
 ### 13.1 Environment & Security
-- [ ] Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify env vars (values already exist in local `.env.local` — copy to Netlify dashboard or `netlify env:set`). Set scope to "All deploy contexts"
-- [ ] Verify cron after deploy: `curl -i -X POST https://5stelle.app/api/cron/review-snapshots -H "Authorization: Bearer <CRON_SECRET>"` → should return 200
-- **Google Places API key hardening (in progress 2026-05-11 session):**
+- [x] Add `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` to Netlify env vars (done 2026-05-16, scoped to Production + Deploy previews + Branch deploys + Preview server & agent runners, "Contains secret values" checked, Local-development context intentionally left empty since `.env.local` covers it)
+- [x] Verify cron after deploy: `curl -i -X POST https://5stelle.app/api/cron/review-snapshots -H "Authorization: Bearer <CRON_SECRET>"` returned **HTTP 200** with `{"total":4,"success":4,"failed":0}` (2026-05-16)
+- **Google Places API key hardening (completed 2026-05-16):**
   - [x] Step 1: API restrictions — key restricted to "Places API (New)" only (was previously unrestricted, accessible to all 33 enabled APIs)
-  - [ ] Step 2: Daily quota caps in Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits. Recommended: `Autocomplete Requests per day = 2000`, `Place Details Enterprise Requests per day = 200`, `Place Photos Requests per day = 100`. Worst-case ceiling ≈ $11/day
-  - [ ] Step 3: Billing budget alert — Cloud Console → Billing → Budgets & alerts → Create €10/month budget with 50/90/100% email alerts to filippoaggio@gmail.com
-  - [ ] Application restrictions: leave "None" (server-to-server calls, no referrer header)
+  - [x] Step 2: Daily quota caps set in Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits. Final values: `AutocompletePlacesRequest per day = 2000`, `GetPlaceRequest per day = 200`, `GetPhotoMediaRequest per day = 100`. Worst-case ceiling ≈ $11/day. (Note for next session: Google's UI uses legacy-style row names — `GetPlaceRequest` is Place Details, `AutocompletePlacesRequest` is Autocomplete, `GetPhotoMediaRequest` is Photos)
+  - [x] Step 3: Billing budget — €10/month with 50/90/100% Actual-spend email alerts on billing account "Account Fatturazione Places" (only billing account linked to the 5stelle GCP project). Confirmed only the 5stelle project is linked to this billing account, so the budget effectively covers Places API spend alone.
+  - [x] Application restrictions: confirmed "None" (server-to-server calls, no referrer header) — appropriate for our usage
 - [ ] Google Cloud project is on main personal account — consider moving to dedicated account later
-- [ ] Update Supabase Auth URL config — change Site URL from `localhost` to `https://5stelle.app` + add redirect URLs
 - [ ] Decide on email confirmation for signups (currently disabled — fine for B2B manual onboarding, risky if public signups)
 
 ### 13.2 Deployment Sync
@@ -399,8 +398,9 @@
 - [x] Skipped in preview mode.
 
 ### 14.3 Open
-- [ ] After phone testing post-merge: review `client_errors` and address root causes of save failures.
-- [ ] If "freeze" symptom doesn't surface in `client_errors` (it's a hung promise, not a thrown error), add timeout-based instrumentation around the Supabase calls in QuestionPageClient and log slow saves.
+- [x] **First phone test (2026-05-16):** 3 runs (Safari normal + 2 incognito) covering great/ok/bad sentiments. **No freezes, no save errors.** Only issues were the review-page flash (15.1) and cookie banner placement (15.2), both fixed and merged to master same session.
+- [ ] After post-15.1/15.2-deploy phone re-test: review `client_errors` to confirm no new errors slipped in: `select occurred_at, context, message, code, details, metadata, user_agent from public.client_errors order by occurred_at desc limit 50;`
+- [ ] If "freeze" symptom surfaces again on real-client traffic and doesn't show in `client_errors` (it's a hung promise, not a thrown error), add timeout-based instrumentation around the Supabase calls in QuestionPageClient and log slow saves.
 - [ ] Consider extending logging to other catch sites if dashboard or form-builder errors become a debugging concern (`LinksClient.tsx:69`, `SettingsClient.tsx:44`, `FormBuilderClient.tsx:52/80/264`).
 
 ### 14.4 How to Check Logs
@@ -426,12 +426,16 @@ Or open Supabase Studio → Table Editor → `client_errors`.
 ### 15.2 Cookie Banner Covers Next Button
 - [x] Banner was overlaying the "Avanti"/"Completa" button on the feedback flow. **Fix:** `CookieBanner` now returns `null` on `/r/*` routes via `usePathname()`. Justified: the feedback flow stores nothing beyond `sessionStorage` (no analytics, no marketing cookies, no tracking pixels) so consent isn't required there.
 
+### 15.3 Post-Deploy Verification (pending — next session)
+- [ ] **Phone-test the live app again** after Netlify finishes deploying the master commit with the 15.1/15.2 fixes. Confirm: (a) bad/ok-low-star sentiment goes straight to /reward with NO flash of the Google CTA, (b) cookie banner no longer appears on `/r/*` routes (still appears on landing/dashboard/etc.), (c) happy path still works end-to-end.
+- [ ] **Check `client_errors` after re-test** via Supabase Studio → Table Editor → `client_errors` (or the SQL in 14.4). Expect zero new rows from the test runs.
+
 ---
 
 ## Known Issues
 
 - **Duplicate sentiment question** — User reported seeing duplicate sentiment question in feedback flow. Likely a data issue (duplicate question rows in DB), not a code bug. Check with: `SELECT id, label, type, order_index, is_active FROM questions WHERE form_id = '<FORM_ID>' ORDER BY order_index;`
-- **Intermittent feedback flow failures on live app (reported 2026-05-10)** — three symptoms: "Errore nel salvare la risposta" toast, UI freezes, slow saves. Suspected causes: Turnstile token expiry (already fixed in `2c52488`, awaiting merge to master) + Supabase post-resume cold-start latency. Phase 14 logging now in place to surface root causes.
+- **Intermittent feedback flow failures on live app (reported 2026-05-10)** — three symptoms: "Errore nel salvare la risposta" toast, UI freezes, slow saves. Turnstile fix already in prod; Phase 14 logging in place. 2026-05-16 phone test (3 runs) couldn't reproduce. Awaiting next real-client traffic to confirm fully resolved — keep an eye on `client_errors` table.
 
 ---
 
