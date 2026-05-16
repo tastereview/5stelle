@@ -51,8 +51,6 @@ export function ReviewPromptClient({
     }
 
     const stored = sessionStorage.getItem(SENTIMENT_KEY)
-    setSentiment(stored)
-    setMounted(true)
 
     // Route to Google CTA if great, or if ok with high star ratings
     const shouldShowReview = stored === 'great' || (stored === 'ok' && (() => {
@@ -65,9 +63,14 @@ export function ReviewPromptClient({
     })())
 
     if (!shouldShowReview) {
+      // Don't reveal the UI before redirecting — prevents a flash of the
+      // review prompt for users who shouldn't see it.
       router.replace(rewardUrl)
       return
     }
+
+    setSentiment(stored)
+    setMounted(true)
 
     // Track that the review prompt was shown
     if (submissionId && !isPreview) {

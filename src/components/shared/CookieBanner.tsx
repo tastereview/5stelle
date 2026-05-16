@@ -2,8 +2,16 @@
 
 import CookieConsent from 'react-cookie-consent'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export function CookieBanner() {
+  const pathname = usePathname()
+
+  // The customer feedback flow uses sessionStorage only (no analytics or
+  // marketing cookies), so consent isn't required and the banner would only
+  // get in the way of the Avanti/Completa buttons.
+  if (pathname?.startsWith('/r/')) return null
+
   return (
     <CookieConsent
       location="bottom"

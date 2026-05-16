@@ -414,6 +414,20 @@ Or open Supabase Studio → Table Editor → `client_errors`.
 
 ---
 
+## Phase 15: Phone-Test Findings (2026-05-16)
+
+> Found during live-app phone testing after Netlify env vars + Google Cloud hardening were deployed. Functional flow works end-to-end (great/ok/bad sentiments + Safari normal & incognito); these are UX/routing polish.
+
+### 15.1 Review Page Flash on Non-Qualifying Sentiments
+- [x] **Bug:** OK-low-star and Bad-sentiment users briefly saw the review prompt page (Google CTA + secondary platforms) for a split second before being client-side redirected to /reward. Root cause: `QuestionPageClient.tsx:227` always navigated to `/review`, and `ReviewPromptClient` rendered the UI between mount and `router.replace()` firing.
+- [x] **Fix (upstream):** `QuestionPageClient.handleNext` now computes `shouldShowReview` (great || ok-with-avg-stars≥3.5) and routes directly to `/reward` for non-qualifying users. They never hit `/review` at all.
+- [x] **Fix (defensive):** `ReviewPromptClient` no longer sets `mounted=true`/`sentiment` before the redirect decision, so direct-URL/back-button visits with non-qualifying sentiment also don't flash.
+
+### 15.2 Cookie Banner Covers Next Button
+- [x] Banner was overlaying the "Avanti"/"Completa" button on the feedback flow. **Fix:** `CookieBanner` now returns `null` on `/r/*` routes via `usePathname()`. Justified: the feedback flow stores nothing beyond `sessionStorage` (no analytics, no marketing cookies, no tracking pixels) so consent isn't required there.
+
+---
+
 ## Known Issues
 
 - **Duplicate sentiment question** — User reported seeing duplicate sentiment question in feedback flow. Likely a data issue (duplicate question rows in DB), not a code bug. Check with: `SELECT id, label, type, order_index, is_active FROM questions WHERE form_id = '<FORM_ID>' ORDER BY order_index;`

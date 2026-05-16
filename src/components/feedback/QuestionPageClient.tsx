@@ -224,7 +224,25 @@ export function QuestionPageClient({
           if (completeError) throw completeError
         }
 
-        router.push(`/r/${restaurantSlug}/${formId}/review${isPreview && previewToken ? `?preview=${encodeURIComponent(previewToken)}` : ''}`)
+        // Route directly to reward for non-qualifying sentiments so the review
+        // prompt page never even renders for them (prevents a brief flash of the
+        // Google CTA before client-side redirect kicks in).
+        const sentiment = sessionStorage.getItem(SENTIMENT_KEY)
+        let shouldShowReview = sentiment === 'great'
+        if (!shouldShowReview && sentiment === 'ok') {
+          const starData = sessionStorage.getItem(STAR_RATINGS_KEY)
+          if (starData) {
+            const ratings = Object.values(JSON.parse(starData)) as number[]
+            if (ratings.length > 0) {
+              const avg = ratings.reduce((s, r) => s + r, 0) / ratings.length
+              shouldShowReview = avg >= 3.5
+            }
+          }
+        }
+
+        const previewSuffix = isPreview && previewToken ? `?preview=${encodeURIComponent(previewToken)}` : ''
+        const nextRoute = shouldShowReview ? 'review' : 'reward'
+        router.push(`/r/${restaurantSlug}/${formId}/${nextRoute}${previewSuffix}`)
       } else {
         router.push(`/r/${restaurantSlug}/${formId}/${questionIndex + 1}${navQuery}`)
       }
