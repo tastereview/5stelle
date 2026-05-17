@@ -252,7 +252,6 @@ export function QuestionPageClient({
         await logClientError('feedback_flow:save_answer', err)
       }
       toast.error('Errore nel salvare la risposta. Riprova.')
-    } finally {
       setIsSubmitting(false)
     }
   }

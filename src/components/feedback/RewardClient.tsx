@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import confetti from 'canvas-confetti'
 import type { Restaurant, Form } from '@/types/database.types'
 import { Card, CardContent } from '@/components/ui/card'
-import { Gift } from 'lucide-react'
+import { Gift, Clock } from 'lucide-react'
 import { PLATFORMS } from '@/lib/constants/platforms'
 
 interface RewardClientProps {
@@ -16,10 +16,14 @@ interface RewardClientProps {
   isPreview?: boolean
 }
 
+const REWARD_VALIDITY_MS = 60 * 60 * 1000
+
 export function RewardClient({ restaurant, form, restaurantSlug, formId, isPreview = false }: RewardClientProps) {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const hasChecked = useRef(false)
+  const [completedAt] = useState(() => Date.now())
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (hasChecked.current) return
@@ -61,7 +65,27 @@ export function RewardClient({ restaurant, form, restaurantSlug, formId, isPrevi
     burst(600)
   }, [router, restaurantSlug, formId])
 
+  useEffect(() => {
+    if (isPreview) return
+    const tick = () => setNow(Date.now())
+    const interval = setInterval(tick, 30000)
+    document.addEventListener('visibilitychange', tick)
+    window.addEventListener('focus', tick)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', tick)
+      window.removeEventListener('focus', tick)
+    }
+  }, [isPreview])
+
   if (!authorized) return null
+
+  const expiresAt = completedAt + REWARD_VALIDITY_MS
+  const isExpired = !isPreview && now >= expiresAt
+  const expiresAtLabel = new Date(expiresAt).toLocaleTimeString('it-IT', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   const links = (restaurant.social_links || {}) as Record<string, string>
 
@@ -91,10 +115,28 @@ export function RewardClient({ restaurant, form, restaurantSlug, formId, isPrevi
           </p>
         </div>
 
-        {form.reward_text && (
+        {form.reward_text && !isExpired && (
           <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-6">
+            <CardContent className="p-6 space-y-3">
               <p className="text-lg font-medium">{form.reward_text}</p>
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Premio valido fino alle {expiresAtLabel}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {form.reward_text && isExpired && (
+          <Card className="bg-muted/40 border-muted">
+            <CardContent className="p-6 space-y-2">
+              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <Clock className="h-5 w-5" />
+                <p className="text-base font-medium">Premio scaduto</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Torna a trovarci per ricevere un nuovo premio.
+              </p>
             </CardContent>
           </Card>
         )}

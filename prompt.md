@@ -4,69 +4,62 @@ Hi, I'm continuing work on 5stelle.
 
 ## Session Context
 
-Last session (2026-05-16) cleared the entire pre-production checklist except for two verification steps that need to happen on a phone after a Netlify deploy finishes. The first paying client wants to start using the app ASAP, so reliability/UX polish is top priority over new features.
+Last session (2026-05-17) shipped two small UX fixes to the feedback flow and added a soft expiry to the reward page so customers can't reuse old reward screens. Also did a thorough co-founder-style pre-launch review and logged the findings in `TODO.md` Phase 16. The first paying client is imminent — reliability/UX polish still top priority over new features.
 
-## Critical State (all good, ready to go pending final phone re-test)
+## Critical State
 
-- **dev/master in sync.** Latest commit on both includes the review-prompt-flash + cookie-banner fixes (Phase 15.1 + 15.2). Netlify auto-deploys from master.
-- **Netlify env vars set:** `GOOGLE_PLACES_API_KEY` and `CRON_SECRET` are live in all deploy contexts ("Contains secret values" checked, Local-development context left empty since `.env.local` covers it).
-- **Cron verified in prod:** `curl POST /api/cron/review-snapshots` with Bearer secret returned 200 + `{"total":4,"success":4,"failed":0}`.
-- **Google Cloud hardening complete:**
-  - API key restricted to "Places API (New)" only
-  - Daily quota caps set in Cloud Console (Google's UI uses legacy names — `GetPlaceRequest=200/day` = Place Details, `AutocompletePlacesRequest=2000/day` = Autocomplete, `GetPhotoMediaRequest=100/day` = Photos). Worst-case ≈ $11/day.
-  - €10/month billing budget with 50/90/100% Actual-spend email alerts on "Account Fatturazione Places" billing account (only the 5stelle project is linked to it, so the budget effectively scopes to Places API spend).
-  - Application restrictions = None (server-to-server, no referrer header — correct for our usage).
-- **Supabase Auth URLs configured:** Site URL = `https://5stelle.app`, Redirect URLs include `https://5stelle.app/auth/callback**`. Also fixed a `ttps://` typo on one of the redirect URLs that would have silently broken password reset.
-- **All DB migrations live:** `questions.is_active`, `submissions.review_prompt_*`, `review_snapshots`, `client_errors`. Single Supabase project covers dev + prod.
-- **Git remote switched from HTTPS to SSH** this session (HTTPS token had expired, Cursor's askpass was failing with 401). Authenticated as GitHub user `5stelle`. SSH key at `~/.ssh/id_ed25519`, no passphrase.
+- **Branch `dev` has 3 uncommitted modified files** at the start of this session (TODO.md, QuestionPageClient.tsx, RewardClient.tsx). Either they were committed + pushed + merged to master at session end, or they're still pending — check `git status` and `git log` to confirm.
+- **Most recent landed change before this session's work:** `3a658ea` on dev + master (2026-05-16 session — Google Cloud hardening, Netlify env vars, Supabase auth URLs, Phase 15.1 review-flash fix + 15.2 cookie-banner fix).
+- Netlify auto-deploys from master.
+- Google Cloud hardening complete (key restricted to Places API New only, quota caps, €10/month budget). All DB migrations live. Supabase Auth URLs configured.
 
-## What Happened in the 2026-05-16 Session
+## What Happened in the 2026-05-17 Session
 
-1. Walked through Google Cloud hardening Steps 2 + 3 in the Console
-2. Added both env vars in Netlify, triggered a deploy, verified cron works in prod
-3. Updated Supabase Auth URLs (caught + fixed the `ttps://` typo)
-4. Phone-tested the live app (3 runs: Safari normal + 2 incognito, covering great/ok/bad sentiments). Flow worked end-to-end with no freezes or save errors. But found two UX issues:
-   - **15.1 Review page flash** — bad/ok-low-star users briefly saw the Google CTA before client-side redirect to /reward. Root cause: `QuestionPageClient.tsx:227` always navigated to `/review`, and `ReviewPromptClient` rendered the UI between mount and `router.replace()` firing. **Fixed:** routing decision moved upstream into `QuestionPageClient.handleNext` so non-qualifying users go directly to `/reward`. Also hardened `ReviewPromptClient` (no UI render before redirect decision) as a defensive safety net for direct-URL/back-button visits.
-   - **15.2 Cookie banner covering the Avanti/Completa button** — **Fixed:** `CookieBanner` now returns `null` on `/r/*` routes via `usePathname()`. GDPR-compliant because the feedback flow uses only sessionStorage (zero non-essential cookies).
-5. Switched git remote to SSH, committed + pushed both fixes, merged dev→master.
+1. **Fixed submit-button spinner flicker** (Phase 15.3 in `TODO.md`). On clicking "Avanti"/"Completa", the spinner used to briefly stop *before* the next page rendered, making the button look clickable again for a split second. Root cause: `setIsSubmitting(false)` was in a `finally` block that ran immediately after `router.push()` returned, but the new page hadn't mounted yet. **Fix:** moved the reset into the `catch` block only. On success, the component unmounts on navigation so the spinner stays spinning through the transition; on error it still resets so the user can retry.
 
-## What's Next (in order — both are quick verification steps)
+2. **Reward page expiry** (Phase 15.5). Customer could leave the `/reward` tab open and re-show it on a future visit to claim the reward again (also: screenshots). Implemented soft 1-hour expiry + prominent timestamp:
+   - `RewardClient.tsx` captures `completedAt = Date.now()` once at mount via `useState(() => Date.now())`. `REWARD_VALIDITY_MS = 60 * 60 * 1000`.
+   - A second `useEffect` ticks `now` every 30s + on `visibilitychange` + on `focus`, so a tab brought back into focus flips to expired immediately (not 30s later).
+   - **Active state:** reward card shows reward text + small clock icon + "Premio valido fino alle HH:MM" (Italian locale via `toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })`).
+   - **Expired state:** reward card swaps to muted style with "Premio scaduto" + "Torna a trovarci per ricevere un nuovo premio."
+   - **Social-follow buttons** stay visible in both states.
+   - **Preview mode skipped** — no expiry when accessed via `?preview=...`.
+   - **Decision rationale logged in TODO 15.5:** rejected the QR-validation-by-waiter approach (waiter accounts, camera permissions, abuse prevention) as way too heavy for a €39/month product. The visible timestamp also defends against screenshots since the time is visible in the screenshot.
 
-1. **Phone-test the live app again** after Netlify finishes deploying the master commit. Confirm:
-   - Bad/ok-low-star sentiment goes straight to /reward with **no flash** of the Google CTA
-   - Cookie banner no longer appears on `/r/*` routes (should still appear on landing/dashboard/etc.)
-   - Happy path (great sentiment → Google CTA → reward) still works
-2. **Check `client_errors`** in Supabase Studio after the re-test:
-   ```sql
-   select occurred_at, context, message, code, details, metadata, user_agent
-   from public.client_errors
-   order by occurred_at desc
-   limit 50;
-   ```
-   Expect zero new rows from the test runs.
+3. **Co-founder-style pre-launch review** — surfaced ~13 open items, logged in **TODO Phase 16** in four buckets:
+   - **16.1 Critical before handoff:** End-to-end Stripe test in prod, lock down signups, destructive-action guard audit, mobile dashboard pass, print + scan a real QR, re-read /privacy and /terms.
+   - **16.2 High value, soon:** Trial-expiry warning email (day 5 of 7), server-side error monitoring (extend `client_errors` to server contexts), support contact path (mailto: in dashboard footer).
+   - **16.3 Polish wins:** Logo upload (column already exists in DB), dashboard metric tooltips.
+   - **16.4 Nice-to-have (defer):** Email digest, CSV export, "Nuovi" separator in FeedbackList, bulk actions on feedback.
 
-## After That (nice-to-haves before broader launch)
+4. Confirmed sentiment-routing logic (in `QuestionPageClient.tsx:227-245`) is correct: `great` → /review (Google CTA); `ok` AND avg star rating ≥ 3.5 → /review; everything else → /reward. User tested with ok+4-star on phone, correctly routed to /review.
 
-- **10.3 OG image + favicon** (`/public/og-image.png` 1200x630, plus favicon — uncomment in `layout.tsx`)
-- **10.5 Full testing pass** — Stripe checkout flow, all form-builder question types, QR scanning, edge cases
-- **10.6 Final launch checks** (env-var inventory, custom-domain confirmation already done, error monitoring)
-- **15.3 Verification steps above** — move to "done" once confirmed
-- If "freeze" symptom comes back from real-client traffic and doesn't show in `client_errors`, add timeout-based instrumentation around the Supabase calls in `QuestionPageClient.tsx` (it's a hung promise, not a thrown error, so the existing logger won't catch it)
+## What's Next (priority order)
+
+1. **Phone-test the live app** after Netlify finishes deploying. Now covers:
+   - **15.4:** confirm 15.1 (no flash on bad/ok-low-star) and 15.2 (no cookie banner on `/r/*`) still working — these landed last session
+   - **15.3:** confirm the submit-button spinner stays solid all the way through page transition (no clickable-flicker)
+   - **15.5:** confirm reward page shows "Premio valido fino alle HH:MM" line. To test the expired state without waiting 1 hour, temporarily lower `REWARD_VALIDITY_MS` in `RewardClient.tsx` to e.g. `60_000` and verify the "Premio scaduto" card renders.
+   - Happy path still works end-to-end.
+2. **Check `client_errors`** after the re-test — `select occurred_at, context, message, code, details, metadata, user_agent from public.client_errors order by occurred_at desc limit 50;` — expect zero new rows.
+3. **Start clearing TODO Phase 16.1 (Critical before handoff)**. The #1 blocker is the **end-to-end Stripe test in prod** — sign up → trial countdown → trial expires → checkout → webhook → status flips to active → Customer Portal cancel → past_due. Without this, the trial-to-paid funnel could be silently broken.
+4. After Critical bucket is clear, work through 16.2 (trial-expiry email is the highest-value single item).
 
 ## Key Files
 
-- `TODO.md` — task tracking. Phase 15 has the latest findings. Phase 13.1 fully done now. Phase 14.3 has the post-test client_errors check.
-- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + `logClientError` helper + (now) upstream sentiment routing for /review vs /reward
-- `src/components/feedback/ReviewPromptClient.tsx` — defensive flash-prevention safety net (no UI render before redirect resolves)
-- `src/components/shared/CookieBanner.tsx` — hidden on `/r/*` via `usePathname()`
-- `src/lib/google-places.ts` — Places API call sites (Autocomplete, Place Details with `rating,userRatingCount,reviews,photos` field mask, Photo media)
-- `netlify/functions/daily-review-snapshots.mts` — cron trigger that calls `/api/cron/review-snapshots` with `Bearer ${CRON_SECRET}`
-- `database-schema.sql` — current live schema
+- `TODO.md` — task tracking. Phase 15 has the latest UX findings, Phase 16 has the pre-handoff polish backlog.
+- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + `logClientError` helper + upstream sentiment routing for /review vs /reward + (now) on-success setIsSubmitting kept true through navigation.
+- `src/components/feedback/RewardClient.tsx` — reward screen with 1-hour soft expiry, visibilitychange/focus listeners.
+- `src/components/feedback/ReviewPromptClient.tsx` — defensive flash-prevention safety net (no UI render before redirect resolves).
+- `src/components/shared/CookieBanner.tsx` — hidden on `/r/*` via `usePathname()`.
+- `src/lib/google-places.ts` — Places API call sites.
+- `netlify/functions/daily-review-snapshots.mts` — cron trigger that calls `/api/cron/review-snapshots` with `Bearer ${CRON_SECRET}`.
+- `database-schema.sql` — current live schema.
 
 ## Pricing Refresher (Places API New, server-side)
 
 - `places:autocomplete` — $2.83/1k (default tier)
-- `places/{id}` with field mask incl. `rating,userRatingCount,reviews` — **$25.00/1k (Enterprise tier)** — the expensive one. Called once per onboarding + once per restaurant per day from the cron.
+- `places/{id}` with field mask incl. `rating,userRatingCount,reviews` — **$25.00/1k (Enterprise tier)** — the expensive one. Once per onboarding + once per restaurant per day from the cron.
 - `places/{name}/media` (photo) — $7.00/1k, onboarding only.
 
 $200/month free credit ≈ 8k Place Details calls ≈ ~250 active restaurants before going over the free tier. Quota caps + €10 budget alert are in place as the safety net.

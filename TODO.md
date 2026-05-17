@@ -426,9 +426,52 @@ Or open Supabase Studio → Table Editor → `client_errors`.
 ### 15.2 Cookie Banner Covers Next Button
 - [x] Banner was overlaying the "Avanti"/"Completa" button on the feedback flow. **Fix:** `CookieBanner` now returns `null` on `/r/*` routes via `usePathname()`. Justified: the feedback flow stores nothing beyond `sessionStorage` (no analytics, no marketing cookies, no tracking pixels) so consent isn't required there.
 
-### 15.3 Post-Deploy Verification (pending — next session)
+### 15.3 Submit Button Spinner Flicker (2026-05-17)
+- [x] **Bug:** Clicking "Avanti"/"Completa" showed the button spinner during the save, then the spinner briefly stopped (button appeared clickable again) before the next page rendered. Root cause: `QuestionPageClient.tsx` reset `setIsSubmitting(false)` in a `finally` block, which ran immediately after `router.push()` returned — but `router.push` resolves before the new page mounts, so there was a visible gap.
+- [x] **Fix:** Moved `setIsSubmitting(false)` from the `finally` block into the `catch` block only. On success, the component unmounts on navigation so the spinner stays spinning through the transition. On error it still resets so the user can retry.
+
+### 15.4 Post-Deploy Verification (pending — next session)
 - [ ] **Phone-test the live app again** after Netlify finishes deploying the master commit with the 15.1/15.2 fixes. Confirm: (a) bad/ok-low-star sentiment goes straight to /reward with NO flash of the Google CTA, (b) cookie banner no longer appears on `/r/*` routes (still appears on landing/dashboard/etc.), (c) happy path still works end-to-end.
 - [ ] **Check `client_errors` after re-test** via Supabase Studio → Table Editor → `client_errors` (or the SQL in 14.4). Expect zero new rows from the test runs.
+
+### 15.5 Reward Page Expiry (2026-05-17)
+> **Problem:** customer could leave the `/reward` tab open and re-show it on a future visit to claim the reward again without leaving new feedback. Even worse: screenshots can be reused later.
+> **Decision:** soft 1-hour expiry + prominent timestamp ("Premio valido fino alle HH:MM"). The visible timestamp defends against screenshots too (waiter sees the time in the screenshot). Rejected the QR-validation-by-waiter approach — way too much complexity (waiter accounts, camera permissions, abuse prevention) for a €39/month product.
+- [x] **Capture** `completedAt` once at mount via `useState(() => Date.now())` in `RewardClient.tsx`. Expiry = `completedAt + 60min`.
+- [x] **Tick** `now` every 30s via `setInterval` + `visibilitychange` + `focus` listeners so tab-restore / backgrounding flips to expired state on next focus.
+- [x] **Active state:** reward card shows reward text + small clock icon + "Premio valido fino alle HH:MM" (Italian locale).
+- [x] **Expired state:** reward card swaps to muted style with "Premio scaduto" + "Torna a trovarci per ricevere un nuovo premio."
+- [x] **Social-follow buttons** stay visible in both states (following on social is still valuable).
+- [x] **Preview mode:** skipped — no expiry in `?preview=...` (the form-builder anteprima should always show the active state).
+
+---
+
+## Phase 16: Pre-Handoff Polish & Open Items (2026-05-17 co-founder review)
+
+> Items surfaced during a pre-launch review with the assistant playing co-founder. Grouped by criticality. None block deploy of the current branch, but the **Critical** bucket should be cleared before the first paying client actually starts using the app for billing/auth.
+
+### 16.1 Critical before handoff
+- [ ] **End-to-end Stripe test in prod.** Sign up → trial countdown → trial expires → middleware blocks dashboard → checkout completes → webhook fires → status flips to `active`. Also test: Customer Portal cancel flow, `past_due` via test card 4000 0000 0000 0341. Confirm Customer Portal config has **invoice history** enabled. This is the #1 launch blocker — broken trial-to-paid funnel kills the business model silently. (Cross-ref: TODO 10.5.)
+- [ ] **Lock down signups.** Currently anyone with the URL can create an account and burn through a free trial. Options: (a) gate `/signup` behind an invite code, (b) disable the route entirely and onboard manually, (c) enable Supabase email confirmation. For B2B manual onboarding at this stage, (b) is simplest. (Cross-ref: TODO 13.1 last bullet.)
+- [ ] **Destructive-action guard audit.** Confirm confirmation prompts exist on: question delete (form builder), table delete (`TableManager`), social-link removal in settings. One-click destructive Supabase calls = irreversible "oops". ~15 min review.
+- [ ] **Mobile dashboard pass.** Open `/dashboard`, `/dashboard/feedback`, `/dashboard/form-builder`, `/dashboard/qr-codes`, `/dashboard/settings`, `/dashboard/billing` on a phone. Owners *will* check on their phone. The customer-facing flow is mobile-first; the dashboard probably isn't.
+- [ ] **Print + scan a real QR code.** Take the PDF download, print on actual paper, scan from realistic table distance and lighting. Both the general QR and a table-specific one. The whole product hinges on physical QRs working.
+- [ ] **Re-read `/privacy` and `/terms`.** Confirm real legal text, not placeholder. GDPR + Italian consumer law liability matters with paying clients. Worth ~10 min.
+
+### 16.2 High value, post-launch acceptable but soon
+- [ ] **Trial-expiry warning email.** Send on day 5 of the 7-day trial: "La tua prova scade tra 2 giorni." Right now the trial ends silently and the owner gets locked out one morning with no warning. High value, ~half day work (Resend + Supabase scheduled function or a separate cron).
+- [ ] **Server-side error monitoring.** `client_errors` only catches the feedback flow. If `/api/cron/review-snapshots`, Stripe webhooks, or `/api/google/*` start failing, we find out from the client. Cheapest fix: extend `logClientError` to a server-side helper that writes to `client_errors` with a `server:*` context prefix. Or wire up a real error service (Sentry free tier) post-launch.
+- [ ] **Support contact path.** No "Aiuto"/contact link anywhere in the dashboard. Minimum: `mailto:` in the sidebar footer or dashboard footer. When the client hits a problem at 8pm on Saturday, they need a path.
+
+### 16.3 Polish wins
+- [ ] **Settings: logo upload.** `restaurants.logo_url` column already exists. Add Supabase Storage bucket + policies + image upload (size limit, format validation) + display on the customer-facing feedback flow (header). Real branding value — makes the app feel "theirs" to the customer, not generic SaaS. Budget ~2 hours. (Cross-ref: TODO 7.2.)
+- [ ] **Dashboard metric tooltips.** Add hover tooltips to: "Soddisfazione complessiva" (explain it's an average of all sentiment values converted to a 0-100 score over the period), Google Reviews delta (vs the baseline captured at onboarding date), prompt-view → click → estimated-attributed-reviews funnel. 30 min, big clarity win.
+
+### 16.4 Nice-to-have (defer until first client requests)
+- [ ] **Email digest** — daily "5 new feedback yesterday, 1 negative" summary email to the owner. Highest-value addition if owners aren't logging in daily.
+- [ ] **CSV export of feedback.** Owners will ask. Cheap to ship via a dashboard button → server route → stream CSV.
+- [ ] **"Nuovi" separator in `FeedbackList`** — visual marker for feedback received since last visit (cookie-based or `last_dashboard_visit_at` on the user). Better signal than a sidebar notification badge.
+- [ ] **Bulk actions on feedback** — archive, mark spam.
 
 ---
 
