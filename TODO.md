@@ -475,6 +475,36 @@ Or open Supabase Studio → Table Editor → `client_errors`.
 
 ---
 
+## Phase 17: Landing Page Demo-Gating & Improvements (2026-05-25)
+
+> Decided 2026-05-25: the landing page is currently set up for self-serve PLG (every CTA → `/signup` with "no card required"), but at this stage we want demo-gated access — manual screening, personal onboarding, quality over volume. Cal.com account created and connected to Apple Calendar same session.
+
+### 17.1 Cal.com Setup
+- Booking link: `https://cal.eu/miralmedia/demo-5stelle-app` (note: `cal.eu`, not `cal.com` — to verify if intentional / EU instance)
+- [ ] Configure "Demo 5stelle" event type — 15 min, Italian, working hours, buffer times
+- [ ] Add intake questions on booking form: restaurant name, città, phone, "come ci hai conosciuto"
+- [ ] Customize confirmation email + reminder (24h + 1h before)
+- [ ] Test end-to-end: book a slot from a different account, confirm Apple Calendar sync, confirm both emails arrive
+
+### 17.2 Landing Page CTA Rework (demo-gated)
+> 4 CTA locations in `src/app/page.tsx` currently all point at `/signup`: navbar, hero, pricing card, final CTA.
+- [ ] Swap all 4 primary CTAs to **"Prenota una demo"** → Cal.com link (`target="_blank"`, `rel="noopener"`)
+- [ ] Remove "Nessuna carta di credito richiesta" microcopy under hero + final CTA — wrong signal for a sales motion
+- [ ] Replace with sales-appropriate trust line: "Demo di 15 min · Senza impegno · In italiano"
+- [ ] Reframe pricing card: "Demo gratuita → 7 giorni di prova → €39/mese" (trial becomes outcome of the demo, not the entry point)
+- [ ] Decide what to do with `/signup`: (a) hide nav link only, route still works for invite links sent post-demo; (b) redirect `/signup` → Cal.com; (c) gate behind invite code. Cross-ref Phase 16.1 "lock down signups" — this is the same decision.
+
+### 17.3 Landing Page Improvements (post-CTA rework)
+> Reviewed `src/app/page.tsx` 2026-05-25, prioritized by impact:
+- [ ] **Sharpen headline** — current "Più recensioni a 5 stelle su Google" is generic. The wedge (filtering) is in the subheadline, should be in H1. Try: "Solo i clienti felici recensiscono su Google. Il resto arriva a te."
+- [ ] **Hero visual** — hero is text-only (just animated stars). Product is visual: phone mockup with feedback flow, or a short loop video/GIF of QR → mobile flow → dashboard. Big lift.
+- [ ] **FAQ section** — three big silent objections: (a) "Is filtering negative reviews allowed by Google's ToS?", (b) "GDPR — dove sono i dati?", (c) "Posso cancellare quando voglio?". Missing FAQ = lost trust at the consideration stage.
+- [ ] **Social proof** — zero testimonials, logos, "ristoranti già usano X". Add once first client is 2-3 weeks in (one quote + restaurant name + città). Final CTA currently says "Unisciti ai ristoratori che già usano 5stelle" with nothing to back it up.
+- [ ] **Swap external stats for owned data** — Stats section cites BrightLocal/ReviewTrackers/Zendesk. Once we have our own numbers (recensioni generate, rating before/after), replace at least one of the three. Owned data > industry citations.
+- [ ] **Add a mid-page CTA** — only 2 CTAs in the whole page (hero + final). Add one after "Come funziona" section.
+
+---
+
 ## Known Issues
 
 - **Duplicate sentiment question** — User reported seeing duplicate sentiment question in feedback flow. Likely a data issue (duplicate question rows in DB), not a code bug. Check with: `SELECT id, label, type, order_index, is_active FROM questions WHERE form_id = '<FORM_ID>' ORDER BY order_index;`

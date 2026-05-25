@@ -4,57 +4,53 @@ Hi, I'm continuing work on 5stelle.
 
 ## Session Context
 
-Last session (2026-05-17) shipped two small UX fixes to the feedback flow and added a soft expiry to the reward page so customers can't reuse old reward screens. Also did a thorough co-founder-style pre-launch review and logged the findings in `TODO.md` Phase 16. The first paying client is imminent — reliability/UX polish still top priority over new features.
+Last session (2026-05-25) was a planning session — no code shipped. We reviewed the landing page and made a strategic decision: switch from self-serve PLG (every CTA → `/signup` with "no card required") to **demo-gated access** via Cal.com. Manual screening fits the current stage (1 client onboarded, reliability > volume per [[project_first_client]]). Cal.com account created same session, connected to Apple Calendar.
 
 ## Critical State
 
-- **Branch `dev` has 3 uncommitted modified files** at the start of this session (TODO.md, QuestionPageClient.tsx, RewardClient.tsx). Either they were committed + pushed + merged to master at session end, or they're still pending — check `git status` and `git log` to confirm.
-- **Most recent landed change before this session's work:** `3a658ea` on dev + master (2026-05-16 session — Google Cloud hardening, Netlify env vars, Supabase auth URLs, Phase 15.1 review-flash fix + 15.2 cookie-banner fix).
+- **Branch `dev` modified files at session start:** TODO.md + prompt.md only (planning updates from the 2026-05-25 session) — see if they're still uncommitted or have been pushed and merged to master.
+- **Most recent landed change:** `12b6609` on dev + master (2026-05-17 session — 1-hour reward page expiry + submit-button spinner flicker fix).
 - Netlify auto-deploys from master.
-- Google Cloud hardening complete (key restricted to Places API New only, quota caps, €10/month budget). All DB migrations live. Supabase Auth URLs configured.
+- No production changes between 2026-05-17 and 2026-05-25.
 
-## What Happened in the 2026-05-17 Session
+## What Happened in the 2026-05-25 Session
 
-1. **Fixed submit-button spinner flicker** (Phase 15.3 in `TODO.md`). On clicking "Avanti"/"Completa", the spinner used to briefly stop *before* the next page rendered, making the button look clickable again for a split second. Root cause: `setIsSubmitting(false)` was in a `finally` block that ran immediately after `router.push()` returned, but the new page hadn't mounted yet. **Fix:** moved the reset into the `catch` block only. On success, the component unmounts on navigation so the spinner stays spinning through the transition; on error it still resets so the user can retry.
+1. **Reviewed the landing page** (`src/app/page.tsx`) and surfaced the top improvement areas: no social proof, text-only hero, no FAQ, generic headline, externally-sourced stats only, only 2 CTAs in the whole page.
 
-2. **Reward page expiry** (Phase 15.5). Customer could leave the `/reward` tab open and re-show it on a future visit to claim the reward again (also: screenshots). Implemented soft 1-hour expiry + prominent timestamp:
-   - `RewardClient.tsx` captures `completedAt = Date.now()` once at mount via `useState(() => Date.now())`. `REWARD_VALIDITY_MS = 60 * 60 * 1000`.
-   - A second `useEffect` ticks `now` every 30s + on `visibilitychange` + on `focus`, so a tab brought back into focus flips to expired immediately (not 30s later).
-   - **Active state:** reward card shows reward text + small clock icon + "Premio valido fino alle HH:MM" (Italian locale via `toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })`).
-   - **Expired state:** reward card swaps to muted style with "Premio scaduto" + "Torna a trovarci per ricevere un nuovo premio."
-   - **Social-follow buttons** stay visible in both states.
-   - **Preview mode skipped** — no expiry when accessed via `?preview=...`.
-   - **Decision rationale logged in TODO 15.5:** rejected the QR-validation-by-waiter approach (waiter accounts, camera permissions, abuse prevention) as way too heavy for a €39/month product. The visible timestamp also defends against screenshots since the time is visible in the screenshot.
+2. **Spotted CTA/business-model mismatch.** All 4 primary CTAs (navbar, hero, pricing card, final CTA) point at `/signup` with "Nessuna carta di credito richiesta" — textbook self-serve PLG. But the user wants demo-gated access at this stage (first client just onboarded, reliability priority). Decision: swap all CTAs to "Prenota una demo" → Cal.com.
 
-3. **Co-founder-style pre-launch review** — surfaced ~13 open items, logged in **TODO Phase 16** in four buckets:
-   - **16.1 Critical before handoff:** End-to-end Stripe test in prod, lock down signups, destructive-action guard audit, mobile dashboard pass, print + scan a real QR, re-read /privacy and /terms.
-   - **16.2 High value, soon:** Trial-expiry warning email (day 5 of 7), server-side error monitoring (extend `client_errors` to server contexts), support contact path (mailto: in dashboard footer).
-   - **16.3 Polish wins:** Logo upload (column already exists in DB), dashboard metric tooltips.
-   - **16.4 Nice-to-have (defer):** Email digest, CSV export, "Nuovi" separator in FeedbackList, bulk actions on feedback.
+3. **Cal.com booking link:** `https://cal.eu/miralmedia/demo-5stelle-app`. Note the `cal.eu` domain (not `cal.com`) — worth confirming this is intentional (EU instance for GDPR) and not a typo. Apple Calendar connected; event type not yet configured.
 
-4. Confirmed sentiment-routing logic (in `QuestionPageClient.tsx:227-245`) is correct: `great` → /review (Google CTA); `ok` AND avg star rating ≥ 3.5 → /review; everything else → /reward. User tested with ok+4-star on phone, correctly routed to /review.
+4. **Logged the full plan in `TODO.md` Phase 17** in three buckets:
+   - **17.1 Cal.com setup** — configure event type (15 min, Italian, intake questions), test booking flow end-to-end.
+   - **17.2 Landing page CTA rework** — swap all 4 CTAs, remove "no card" microcopy, decide what to do with `/signup` route (cross-refs Phase 16.1 "lock down signups").
+   - **17.3 Landing page improvements** — sharpen headline, add hero visual, FAQ section, social proof (once first client is 2-3 weeks in), swap external stats for owned data, add mid-page CTA.
 
 ## What's Next (priority order)
 
-1. **Phone-test the live app** after Netlify finishes deploying. Now covers:
-   - **15.4:** confirm 15.1 (no flash on bad/ok-low-star) and 15.2 (no cookie banner on `/r/*`) still working — these landed last session
-   - **15.3:** confirm the submit-button spinner stays solid all the way through page transition (no clickable-flicker)
-   - **15.5:** confirm reward page shows "Premio valido fino alle HH:MM" line. To test the expired state without waiting 1 hour, temporarily lower `REWARD_VALIDITY_MS` in `RewardClient.tsx` to e.g. `60_000` and verify the "Premio scaduto" card renders.
-   - Happy path still works end-to-end.
-2. **Check `client_errors`** after the re-test — `select occurred_at, context, message, code, details, metadata, user_agent from public.client_errors order by occurred_at desc limit 50;` — expect zero new rows.
-3. **Start clearing TODO Phase 16.1 (Critical before handoff)**. The #1 blocker is the **end-to-end Stripe test in prod** — sign up → trial countdown → trial expires → checkout → webhook → status flips to active → Customer Portal cancel → past_due. Without this, the trial-to-paid funnel could be silently broken.
-4. After Critical bucket is clear, work through 16.2 (trial-expiry email is the highest-value single item).
+1. **Configure the Cal.com event type before touching the landing page.** Walk through: 15-min duration, working hours, Italian language, intake questions on the booking form (restaurant name, città, phone, "come ci hai conosciuto"), confirmation + reminder emails. Test by booking a slot from a different account. Going live with broken / half-configured booking is worse than not going live.
+
+2. **Then the CTA rework (Phase 17.2).** Quick win — 4 string + href changes in `src/app/page.tsx`. Decide same time what `/signup` should do (Phase 16.1 has the same open question).
+
+3. **Then Phase 17.3 polish.** Headline + hero visual + FAQ are the three biggest. Social proof waits until first client is 2-3 weeks in and willing to give a quote.
+
+4. **Still open from Phase 16.1 (Critical before handoff):** end-to-end Stripe test in prod, destructive-action guard audit, mobile dashboard pass, print + scan a real QR, re-read `/privacy` and `/terms`. These remain the launch blockers — the demo-gating work doesn't replace them.
+
+5. **Phase 15.4 verification still pending** — phone-test 15.3 (no spinner flicker) and 15.5 (reward "Premio valido fino alle HH:MM" + expired state) on the live app, then check `client_errors` for new rows.
 
 ## Key Files
 
-- `TODO.md` — task tracking. Phase 15 has the latest UX findings, Phase 16 has the pre-handoff polish backlog.
-- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + `logClientError` helper + upstream sentiment routing for /review vs /reward + (now) on-success setIsSubmitting kept true through navigation.
-- `src/components/feedback/RewardClient.tsx` — reward screen with 1-hour soft expiry, visibilitychange/focus listeners.
-- `src/components/feedback/ReviewPromptClient.tsx` — defensive flash-prevention safety net (no UI render before redirect resolves).
-- `src/components/shared/CookieBanner.tsx` — hidden on `/r/*` via `usePathname()`.
-- `src/lib/google-places.ts` — Places API call sites.
-- `netlify/functions/daily-review-snapshots.mts` — cron trigger that calls `/api/cron/review-snapshots` with `Bearer ${CRON_SECRET}`.
-- `database-schema.sql` — current live schema.
+- `src/app/page.tsx` — landing page, 4 CTA locations all currently → `/signup`
+- `TODO.md` — Phase 17 has the landing-page rework plan, Phase 16.1 still has the critical pre-handoff items
+- `src/components/feedback/QuestionPageClient.tsx` — feedback save logic + `logClientError` helper + sentiment routing
+- `src/components/feedback/RewardClient.tsx` — reward screen with 1-hour soft expiry
+- `database-schema.sql` — current live schema
+
+## Reference
+
+- Cal.com booking link: `https://cal.eu/miralmedia/demo-5stelle-app`
+- Cal.com account: connected to user's Apple Calendar (2026-05-25)
+- Saved to memory: [[reference_cal_booking]]
 
 ## Pricing Refresher (Places API New, server-side)
 
